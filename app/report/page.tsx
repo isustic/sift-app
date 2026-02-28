@@ -703,7 +703,11 @@ export default function ReportPage() {
                 error={error}
                 onExport={handleExport}
                 onRefine={() => setCurrentStep("filters")}
-                onEdit={() => setCurrentStep("columns")}
+                onEdit={() => {
+                  setCurrentStep("columns");
+                  setCompletedSteps(new Set());
+                  setResult(null);
+                }}
                 columns={resultColumns}
               />
             )}
