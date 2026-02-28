@@ -1,0 +1,286 @@
+use crate::db::{DbState, schema::sanitize_col_name};
+use rusqlite::params;
+use serde::Deserialize;
+use tauri::State;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMode {
+    Raw,        // SELECT * FROM ... WHERE ... (for browsing)
+    Summary,    // With GROUP BY and aggregations
+    Trends,     // With date bucketing
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Filter {
+    pub column: String,
+    pub operator: String, // "=", "!=", ">", "<", ">=", "<=", "LIKE"
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Metric {
+    pub column: String,
+    pub function: String, // "SUM", "COUNT", "AVG", "MIN", "MAX"
+    pub alias: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportQuery {
+    pub mode: Option<QueryMode>, // Defaults to Summary for backward compat
+    pub dataset_id: i64,
+    pub columns: Option<Vec<String>>, // For Raw mode - which columns to show
+    pub filters: Vec<Filter>,
+    pub dimensions: Vec<String>,
+    pub metrics: Vec<Metric>,
+    pub date_column: Option<String>,
+    pub date_bucket: Option<String>, // "month", "quarter", "year"
+    pub sort_by: Option<String>,
+    pub sort_desc: Option<bool>,
+    pub limit: Option<i64>,
+}
+
+/// Returns all valid column names for a given dataset (used for whitelisting).
+fn get_valid_columns(conn: &rusqlite::Connection, dataset_id: i64) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT name FROM columns WHERE dataset_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let names = stmt
+        .query_map(params![dataset_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(names)
+}
+
+/// Validates that a column name exists in the allowed set.
+fn validate_col(name: &str, allowed: &[String]) -> Result<String, String> {
+    let safe = sanitize_col_name(name);
+    if allowed.iter().any(|a| sanitize_col_name(a) == safe) {
+        Ok(safe)
+    } else {
+        Err(format!("Column '{name}' is not valid for this dataset"))
+    }
+}
+
+#[tauri::command]
+pub fn run_report(
+    query: ReportQuery,
+    db: State<'_, DbState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let conn = db.0.lock().map_err(|_| "DB lock error")?;
+
+    let table_name: String = conn
+        .query_row(
+            "SELECT table_name FROM datasets WHERE id = ?1",
+            params![query.dataset_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("Dataset not found: {e}"))?;
+
+    let valid_cols = get_valid_columns(&conn, query.dataset_id)?;
+    let safe_table = sanitize_col_name(&table_name);
+
+    // Determine query mode (default to Summary for backward compatibility)
+    let mode = query.mode.as_ref().unwrap_or(&QueryMode::Summary);
+
+    let mut sql: String;
+    let mut bind_values: Vec<String> = Vec::new();
+
+    match mode {
+        QueryMode::Raw => {
+            // Raw mode: SELECT col1, col2 FROM table WHERE ... ORDER BY ... LIMIT ...
+            let select_cols = if let Some(ref cols) = query.columns {
+                if cols.is_empty() {
+                    // Select all valid columns
+                    valid_cols.iter().map(|c| format!("\"{c}\"")).collect::<Vec<_>>()
+                } else {
+                    // Validate and select specified columns
+                    let mut validated = Vec::new();
+                    for col in cols {
+                        let safe = validate_col(col, &valid_cols)?;
+                        validated.push(format!("\"{safe}\""));
+                    }
+                    validated
+                }
+            } else {
+                // No columns specified, select all
+                valid_cols.iter().map(|c| format!("\"{c}\"")).collect::<Vec<_>>()
+            };
+
+            if select_cols.is_empty() {
+                return Err("No columns available for selection".into());
+            }
+
+            sql = format!("SELECT {} FROM \"{}\"", select_cols.join(", "), safe_table);
+
+            // WHERE clause
+            let allowed_ops = ["=", "!=", ">", "<", ">=", "<=", "LIKE"];
+            let mut where_parts: Vec<String> = Vec::new();
+            for f in &query.filters {
+                if !allowed_ops.contains(&f.operator.as_str()) {
+                    return Err(format!("Unsupported operator: {}", f.operator));
+                }
+                let safe_col = validate_col(&f.column, &valid_cols)?;
+                let placeholder = format!("?{}", bind_values.len() + 1);
+                where_parts.push(format!("\"{safe_col}\" {} {placeholder}", f.operator));
+                bind_values.push(f.value.clone());
+            }
+
+            if !where_parts.is_empty() {
+                sql.push_str(&format!(" WHERE {}", where_parts.join(" AND ")));
+            }
+
+            // ORDER BY clause
+            if let Some(ref sort_col) = query.sort_by {
+                let safe_sort = validate_col(sort_col, &valid_cols)?;
+                let desc = query.sort_desc.unwrap_or(false);
+                sql.push_str(&format!(" ORDER BY \"{}\"{}", safe_sort, if desc { " DESC" } else { "" }));
+            }
+
+            // LIMIT clause
+            if let Some(limit) = query.limit {
+                if limit > 0 {
+                    sql.push_str(&format!(" LIMIT {}", limit));
+                }
+            }
+        }
+
+        QueryMode::Summary | QueryMode::Trends => {
+            // Summary/Trends mode: Aggregation with GROUP BY
+            let mut select_parts: Vec<String> = Vec::new();
+            let mut group_cols: Vec<String> = Vec::new();
+
+            // Date bucketing (for Trends or when explicitly configured)
+            let use_date_bucket = matches!(mode, QueryMode::Trends) ||
+                (query.date_column.is_some() && query.date_bucket.is_some());
+
+            if use_date_bucket {
+                if let (Some(date_col), Some(bucket)) = (&query.date_column, &query.date_bucket) {
+                    let safe_dc = validate_col(date_col, &valid_cols)?;
+                    let fmt = match bucket.as_str() {
+                        "month" => "%Y-%m",
+                        "quarter" => "%Y-Q",
+                        "year" => "%Y",
+                        _ => "%Y",
+                    };
+                    if bucket == "quarter" {
+                        let expr = format!(
+                            "(\"{safe_dc}\" || '-Q' || CASE CAST(strftime('%m', \"{safe_dc}\") AS INTEGER) \
+                             WHEN 1 THEN '1' WHEN 2 THEN '1' WHEN 3 THEN '1' \
+                             WHEN 4 THEN '2' WHEN 5 THEN '2' WHEN 6 THEN '2' \
+                             WHEN 7 THEN '3' WHEN 8 THEN '3' WHEN 9 THEN '3' \
+                             ELSE '4' END) AS \"date_bucket\""
+                        );
+                        select_parts.push(expr.clone());
+                        group_cols.push("\"date_bucket\"".to_string());
+                    } else {
+                        let expr = format!("strftime('{fmt}', \"{safe_dc}\") AS \"date_bucket\"");
+                        select_parts.push(expr);
+                        group_cols.push("\"date_bucket\"".to_string());
+                    }
+                }
+            }
+
+            // Dimensions
+            for dim in &query.dimensions {
+                let safe = validate_col(dim, &valid_cols)?;
+                select_parts.push(format!("\"{safe}\""));
+                group_cols.push(format!("\"{safe}\""));
+            }
+
+            // Metrics
+            let allowed_fns = ["SUM", "COUNT", "AVG", "MIN", "MAX"];
+            for m in &query.metrics {
+                let func = m.function.to_uppercase();
+                if !allowed_fns.contains(&func.as_str()) {
+                    return Err(format!("Unsupported aggregation function: {}", m.function));
+                }
+                let safe_col = validate_col(&m.column, &valid_cols)?;
+                let safe_alias = sanitize_col_name(&m.alias);
+                select_parts.push(format!("{func}(\"{safe_col}\") AS \"{safe_alias}\""));
+            }
+
+            // For Summary mode without metrics but with dimensions, add COUNT(*)
+            if select_parts.is_empty() {
+                return Err("No SELECT expressions specified. Add dimensions or metrics to your report.".into());
+            }
+
+            // Check if we only have dimensions (no aggregations) - add COUNT for valid SQL
+            if query.metrics.is_empty() && !query.dimensions.is_empty() {
+                select_parts.push("COUNT(*) AS \"count\"".to_string());
+            }
+
+            sql = format!(
+                "SELECT {} FROM \"{}\"",
+                select_parts.join(", "),
+                safe_table
+            );
+
+            // WHERE clause (parameterized values)
+            let allowed_ops = ["=", "!=", ">", "<", ">=", "<=", "LIKE"];
+            let mut where_parts: Vec<String> = Vec::new();
+            for f in &query.filters {
+                if !allowed_ops.contains(&f.operator.as_str()) {
+                    return Err(format!("Unsupported operator: {}", f.operator));
+                }
+                let safe_col = validate_col(&f.column, &valid_cols)?;
+                let placeholder = format!("?{}", bind_values.len() + 1);
+                where_parts.push(format!("\"{safe_col}\" {} {placeholder}", f.operator));
+                bind_values.push(f.value.clone());
+            }
+
+            if !where_parts.is_empty() {
+                sql.push_str(&format!(" WHERE {}", where_parts.join(" AND ")));
+            }
+
+            if !group_cols.is_empty() {
+                sql.push_str(&format!(" GROUP BY {}", group_cols.join(", ")));
+            }
+
+            // ORDER BY clause for summary queries
+            if let Some(ref sort_col) = query.sort_by {
+                let safe_sort = validate_col(sort_col, &valid_cols)?;
+                let desc = query.sort_desc.unwrap_or(false);
+                sql.push_str(&format!(" ORDER BY \"{}\"{}", safe_sort, if desc { " DESC" } else { "" }));
+            }
+
+            // LIMIT clause
+            if let Some(limit) = query.limit {
+                if limit > 0 {
+                    sql.push_str(&format!(" LIMIT {}", limit));
+                }
+            }
+        }
+    }
+
+    // Execute with parameterized values
+    let mut stmt = conn.prepare(&sql).map_err(|e| format!("SQL error: {e}"))?;
+    let col_count = stmt.column_count();
+    let col_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+
+    let result_rows = stmt
+        .query_map(rusqlite::params_from_iter(bind_values.iter()), |row| {
+            let mut map = serde_json::Map::new();
+            for i in 0..col_count {
+                let val: rusqlite::types::Value = row.get(i)?;
+                let json_val = match val {
+                    rusqlite::types::Value::Null => serde_json::Value::Null,
+                    rusqlite::types::Value::Integer(n) => serde_json::Value::Number(n.into()),
+                    rusqlite::types::Value::Real(f) => {
+                        serde_json::Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into()))
+                    }
+                    rusqlite::types::Value::Text(s) => serde_json::Value::String(s),
+                    rusqlite::types::Value::Blob(_) => serde_json::Value::String("[blob]".into()),
+                };
+                map.insert(col_names[i].clone(), json_val);
+            }
+            Ok(serde_json::Value::Object(map))
+        })
+        .map_err(|e| format!("Query error: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Row error: {e}"))?;
+
+    Ok(result_rows)
+}
