@@ -69,7 +69,7 @@ export function Step4_Filters({
         <div>
           <h3 className="text-lg font-semibold">Filter Data</h3>
           <p className="text-sm text-muted-foreground">
-            Optionally filter your data to narrow results
+            Add at least one filter to narrow your results
           </p>
         </div>
         <Badge variant="secondary" className="text-sm">
@@ -145,10 +145,11 @@ export function Step4_Filters({
           <Button
             onClick={handleAddFilter}
             disabled={!canAdd}
-            size="icon"
             variant="outline"
+            className="gap-1"
           >
             <PlusIcon className="h-4 w-4" />
+            Add
           </Button>
         </div>
       </div>
@@ -202,10 +203,10 @@ export function Step4_Filters({
         <div className="rounded-md border border-dashed border-border/50 p-6 text-center">
           <FilterIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground mb-1">
-            No filters applied
+            Add a filter above to continue
           </p>
           <p className="text-xs text-muted-foreground">
-            Your report will include all data
+            At least one filter is required to proceed
           </p>
         </div>
       )}
