@@ -28,7 +28,7 @@ fn get_valid_columns(conn: &rusqlite::Connection, dataset_id: i64) -> Result<Vec
 /// Validates that a column name exists in the allowed set.
 fn validate_col(name: &str, allowed: &[String]) -> Result<String, String> {
     let safe = sanitize_col_name(name);
-    if allowed.iter().any(|a| sanitize_col_name(a) == safe) {
+    if allowed.contains(&safe) {
         Ok(safe)
     } else {
         Err(format!("Column '{name}' is not valid for this dataset"))
@@ -57,7 +57,7 @@ pub fn run_report(
     query: SimpleQuery,
     db: State<'_, DbState>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let conn = db.0.lock().map_err(|_| "DB lock error")?;
+    let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
 
     // Get the table name for this dataset
     let table_name: String = conn
@@ -133,10 +133,26 @@ pub fn run_report(
         sql.push_str(&format!(" GROUP BY {}", group_parts.join(", ")));
 
         // ORDER BY clause (can reference group_by columns or calculation aliases)
-        for sort in &query.sort_by {
-            let safe_col = validate_col(&sort.column, &valid_cols)?;
-            let dir = if sort.descending { " DESC" } else { "" };
-            sql.push_str(&format!(" ORDER BY \"{}\"{}", safe_col, dir));
+        // Build alias list from calculations
+        let calc_aliases: Vec<String> = query.calculations
+            .iter()
+            .map(|c| sanitize_col_name(&c.alias))
+            .collect();
+
+        if !query.sort_by.is_empty() {
+            let mut order_parts: Vec<String> = Vec::new();
+            for sort in &query.sort_by {
+                let safe_name = sanitize_col_name(&sort.column);
+                let dir = if sort.descending { " DESC" } else { "" };
+
+                // Check if it's a valid column or a calculation alias
+                if valid_cols.contains(&safe_name) || calc_aliases.contains(&safe_name) {
+                    order_parts.push(format!("\"{safe_name}\"{dir}"));
+                } else {
+                    return Err(format!("Invalid sort column '{}': not a valid column or calculation alias", sort.column));
+                }
+            }
+            sql.push_str(&format!(" ORDER BY {}", order_parts.join(", ")));
         }
 
     } else {
