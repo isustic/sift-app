@@ -10,6 +10,7 @@
 use crate::commands::queries::SimpleQuery;
 use crate::db::{DbState, schema::sanitize_col_name};
 use rusqlite::params;
+use std::time::Instant;
 use tauri::State;
 
 /// Returns all valid column names for a given dataset (used for whitelisting).
@@ -57,6 +58,7 @@ pub fn run_report(
     query: SimpleQuery,
     db: State<'_, DbState>,
 ) -> Result<Vec<serde_json::Value>, String> {
+    let start_time = Instant::now();
     let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
 
     // Get the table name for this dataset
@@ -235,6 +237,22 @@ pub fn run_report(
         .map_err(|e| format!("Query error: {e}"))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Row error: {e}"))?;
+
+    let row_count = result_rows.len() as i64;
+    let duration_ms = start_time.elapsed().as_millis() as i64;
+
+    // Save query to history for analytics
+    let query_json = serde_json::to_string(&query).unwrap_or_default();
+    let _ = conn.execute(
+        "INSERT INTO query_history (report_config, row_count, duration_ms) VALUES (?1, ?2, ?3)",
+        params![query_json, row_count, duration_ms],
+    );
+
+    // Also track the event
+    let _ = conn.execute(
+        "INSERT INTO analytics_events (event_type, metadata) VALUES ('report_run', ?1)",
+        params![format!("{{\"rows\": {}, \"duration_ms\": {}}}", row_count, duration_ms)],
+    );
 
     Ok(result_rows)
 }

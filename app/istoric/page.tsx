@@ -1,0 +1,250 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { History, ChevronDown, ChevronRight, FileSpreadsheet, Calendar } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { HistoricDataModal } from "@/components/Upload/HistoricDataModal";
+import { cn } from "@/lib/utils";
+
+const ROMANIAN_MONTHS = [
+    "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
+    "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"
+];
+
+interface Dataset {
+    id: number;
+    name: string;
+    file_origin: string;
+    row_count: number;
+    created_at: string;
+}
+
+export default function IstoricPage() {
+    const [datasets, setDatasets] = useState<Dataset[]>([]);
+    const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+    const [expandedMonths, setExpandedMonths] = useState<Map<number, Set<number>>>(new Map());
+    const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
+
+    const loadDatasets = useCallback(async () => {
+        const ds = await invoke<Dataset[]>("list_datasets");
+        setDatasets(ds);
+    }, []);
+
+    useEffect(() => {
+        loadDatasets();
+    }, [loadDatasets]);
+
+    // Group datasets by year -> month
+    const groupedDatasets = useCallback((): Map<number, Map<number, Dataset[]>> => {
+        const groups = new Map<number, Map<number, Dataset[]>>();
+
+        for (const ds of datasets) {
+            const date = new Date(ds.created_at);
+            const year = date.getFullYear();
+            const month = date.getMonth();
+
+            if (!groups.has(year)) {
+                groups.set(year, new Map<number, Dataset[]>());
+            }
+            const yearGroup = groups.get(year)!;
+            if (!yearGroup.has(month)) {
+                yearGroup.set(month, []);
+            }
+            yearGroup.get(month)!.push(ds);
+        }
+
+        // Sort datasets within each month by created_at (newest first)
+        for (const yearGroup of groups.values()) {
+            for (const monthDatasets of yearGroup.values()) {
+                monthDatasets.sort((a, b) =>
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+            }
+        }
+
+        return groups;
+    }, [datasets]);
+
+    const groups = groupedDatasets();
+
+    const toggleYear = (year: number) => {
+        setExpandedYears(prev => {
+            const next = new Set(prev);
+            if (next.has(year)) {
+                next.delete(year);
+            } else {
+                next.add(year);
+            }
+            return next;
+        });
+    };
+
+    const toggleMonth = (year: number, month: number) => {
+        setExpandedMonths(prev => {
+            const next = new Map(prev);
+            const yearSet = next.get(year) || new Set<number>();
+            if (yearSet.has(month)) {
+                yearSet.delete(month);
+                // Clean up empty year sets
+                if (yearSet.size === 0) {
+                    next.delete(year);
+                } else {
+                    next.set(year, yearSet);
+                }
+            } else {
+                yearSet.add(month);
+                next.set(year, yearSet);
+            }
+            return next;
+        });
+    };
+
+    const openDatasetModal = (dataset: Dataset) => {
+        setSelectedDataset(dataset);
+        setModalOpen(true);
+    };
+
+    const formatDate = (dateString: string): string => {
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+
+        return `${day}-${month}-${year} ${hours}:${minutes}`;
+    };
+
+    const sortedYears = Array.from(groups.keys()).sort((a, b) => b - a);
+
+    return (
+        <div className="flex flex-col h-full bg-background/50 mesh-bg">
+            {/* Header */}
+            <div className="h-14 px-6 flex items-center gap-3 border-b border-border/50 bg-card/30 backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
+                    <History className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                    <h1 className="text-sm font-semibold">Istoric</h1>
+                    <p className="text-[10px] text-muted-foreground">
+                        {datasets.length} {datasets.length === 1 ? "dataset" : "datasets"}
+                    </p>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6">
+                {datasets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
+                            <Calendar className="w-7 h-7 text-muted-foreground/50" />
+                        </div>
+                        <h2 className="text-lg font-semibold mb-2 text-foreground">Nu există date</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Importă fișiere Excel pentru a vedea istoricul
+                        </p>
+                    </div>
+                ) : (
+                    <div className="max-w-3xl mx-auto space-y-3">
+                        {sortedYears.map((year) => {
+                            const yearExpanded = expandedYears.has(year);
+                            const yearGroups = groups.get(year)!;
+                            const sortedMonths = Array.from(yearGroups.keys()).sort((a, b) => b - a);
+                            const yearDatasetCount = Array.from(yearGroups.values())
+                                .reduce((sum, arr) => sum + arr.length, 0);
+
+                            return (
+                                <Collapsible
+                                    key={year}
+                                    open={yearExpanded}
+                                    onOpenChange={() => toggleYear(year)}
+                                >
+                                    {/* Year Header */}
+                                    <CollapsibleTrigger className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card/70 transition-colors cursor-pointer">
+                                        {yearExpanded ? (
+                                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                        ) : (
+                                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                        )}
+                                        <span className="text-sm font-semibold">{year}</span>
+                                        <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded bg-muted/40">
+                                            {yearDatasetCount}
+                                        </span>
+                                    </CollapsibleTrigger>
+
+                                    {/* Months */}
+                                    <CollapsibleContent className="mt-2 ml-6 space-y-2">
+                                        {sortedMonths.map((month) => {
+                                            const monthExpanded = expandedMonths.get(year)?.has(month);
+                                            const monthDatasets = yearGroups.get(month)!;
+
+                                            return (
+                                                <Collapsible
+                                                    key={month}
+                                                    open={monthExpanded}
+                                                    onOpenChange={() => toggleMonth(year, month)}
+                                                >
+                                                    {/* Month Header */}
+                                                    <CollapsibleTrigger className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors cursor-pointer">
+                                                        {monthExpanded ? (
+                                                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                                        ) : (
+                                                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                                        )}
+                                                        <span className="text-xs font-medium">{ROMANIAN_MONTHS[month]}</span>
+                                                        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-background/60">
+                                                            {monthDatasets.length}
+                                                        </span>
+                                                    </CollapsibleTrigger>
+
+                                                    {/* Datasets */}
+                                                    <CollapsibleContent className="mt-1.5 ml-5 space-y-1.5">
+                                                        {monthDatasets.map((dataset) => (
+                                                            <button
+                                                                key={dataset.id}
+                                                                onClick={() => openDatasetModal(dataset)}
+                                                                className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-background/60 border border-border/30 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
+                                                            >
+                                                                <FileSpreadsheet className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                                                                        {dataset.name}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground font-data truncate">
+                                                                        {formatDate(dataset.created_at)} · {dataset.file_origin}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/40 font-data shrink-0">
+                                                                    {dataset.row_count.toLocaleString()} rânduri
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </CollapsibleContent>
+                                                </Collapsible>
+                                            );
+                                        })}
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Modal */}
+            {selectedDataset && (
+                <HistoricDataModal
+                    open={modalOpen}
+                    onOpenChange={setModalOpen}
+                    datasetId={selectedDataset.id}
+                    datasetName={selectedDataset.name}
+                    fileOrigin={selectedDataset.file_origin}
+                    rowCount={selectedDataset.row_count}
+                    createdAt={selectedDataset.created_at}
+                />
+            )}
+        </div>
+    );
+}

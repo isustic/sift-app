@@ -17,13 +17,13 @@
 //!
 //! Only filter values (`SimpleFilter.value`) are safe for parameterized queries.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// User-provided query configuration.
 ///
 /// All fields contain user input that must be validated against the database
 /// whitelist before use in SQL construction. See module-level docs for details.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleQuery {
     pub dataset_id: i64,
@@ -35,21 +35,21 @@ pub struct SimpleQuery {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Calculation {
     pub function: String, // "sum", "count", "avg", "min", "max"
     pub column: String,
     pub alias: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SimpleFilter {
     pub column: String,
     pub operator: String,
     pub value: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SortColumn {
     pub column: String,
     pub descending: bool,

@@ -1,0 +1,105 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { UploadZone } from "@/components/Upload/UploadZone";
+import { Database, FileSpreadsheet } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataTable } from "@/components/Upload/DataTable";
+
+interface Dataset {
+    id: number;
+    name: string;
+    file_origin: string;
+    table_name: string;
+    row_count: number;
+    created_at: string;
+}
+
+export default function UploadPage() {
+    const [datasets, setDatasets] = useState<Dataset[]>([]);
+    const [activeDataset, setActiveDataset] = useState<Dataset | null>(null);
+
+    const loadDatasets = useCallback(async () => {
+        const ds = await invoke<Dataset[]>("list_datasets");
+        setDatasets(ds);
+        if (ds.length > 0 && !activeDataset) setActiveDataset(ds[0]);
+    }, [activeDataset]);
+
+    useEffect(() => {
+        loadDatasets();
+    }, []);
+
+    return (
+        <div className="flex flex-col h-full bg-background/50 mesh-bg">
+            {/* Header */}
+            <div className="h-14 px-6 flex items-center justify-between gap-4 border-b border-border/50 bg-card/30 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Database className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                        <h1 className="text-sm font-semibold">Data Explorer</h1>
+                        <p className="text-[10px] text-muted-foreground">
+                            {activeDataset ? `${activeDataset.row_count.toLocaleString()} rows · ${activeDataset.name}` : "No dataset"}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dataset</span>
+                    <Select
+                        value={String(activeDataset?.id ?? "")}
+                        onValueChange={(value) => {
+                            const selected = datasets.find((ds) => ds.id === Number(value));
+                            if (selected) {
+                                setActiveDataset(selected);
+                            }
+                        }}
+                    >
+                        <SelectTrigger size="sm" className="w-[200px]">
+                            <SelectValue placeholder="Select dataset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {datasets.map((ds) => (
+                                <SelectItem key={ds.id} value={String(ds.id)}>
+                                    {ds.name} ({(ds.row_count / 1000).toFixed(1)}k rows)
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Upload zone or table */}
+            {datasets.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center p-8">
+                    <div className="w-full max-w-lg animate-fade-in">
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
+                                <FileSpreadsheet className="w-7 h-7 text-primary" />
+                            </div>
+                            <h2 className="text-lg font-semibold mb-2">Import your first Excel file</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Upload Excel files to start analyzing data
+                            </p>
+                        </div>
+                        <UploadZone onSuccess={loadDatasets} />
+                    </div>
+                </div>
+            ) : (
+                <div className="flex flex-col flex-1 min-h-0">
+                    {/* Data Table */}
+                    {activeDataset && (
+                        <DataTable
+                            datasetId={activeDataset.id}
+                            datasetName={activeDataset.name}
+                            rowCount={activeDataset.row_count}
+                            uploadZone={<UploadZone onSuccess={loadDatasets} compact />}
+                        />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
