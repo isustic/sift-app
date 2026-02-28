@@ -5,4 +5,4 @@ pub mod queries;
 pub mod report;
 pub mod templates;
 
-pub use queries::{Calculation, Filter, SimpleQuery, SortColumn};
+pub use queries::{Calculation, SimpleFilter, SimpleQuery, SortColumn};

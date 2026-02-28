@@ -1,5 +1,28 @@
+//! Query schema for SimpleQuery request.
+//!
+//! # SECURITY WARNING - SQL INJECTION PREVENTION
+//!
+//! **ALL** column names and aliases in this schema MUST be validated against
+//! the database whitelist (the `columns` metadata table) BEFORE being used
+//! in SQL queries. This validation is performed in `report::run_report()`.
+//!
+//! The values in this schema are user-provided and potentially malicious.
+//! Never directly interpolate these fields into SQL without validation:
+//! - `SimpleQuery.display_columns[]` - column names
+//! - `SimpleQuery.group_by[]` - column names
+//! - `Calculation.column` - column name
+//! - `Calculation.alias` - alias name
+//! - `SimpleFilter.column` - column name
+//! - `SortColumn.column` - column name
+//!
+//! Only filter values (`SimpleFilter.value`) are safe for parameterized queries.
+
 use serde::Deserialize;
 
+/// User-provided query configuration.
+///
+/// All fields contain user input that must be validated against the database
+/// whitelist before use in SQL construction. See module-level docs for details.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleQuery {
@@ -7,7 +30,7 @@ pub struct SimpleQuery {
     pub display_columns: Vec<String>,
     pub group_by: Vec<String>,
     pub calculations: Vec<Calculation>,
-    pub filters: Vec<Filter>,
+    pub filters: Vec<SimpleFilter>,
     pub sort_by: Vec<SortColumn>,
     pub limit: Option<i64>,
 }
@@ -20,7 +43,7 @@ pub struct Calculation {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Filter {
+pub struct SimpleFilter {
     pub column: String,
     pub operator: String,
     pub value: String,
@@ -48,7 +71,7 @@ impl Calculation {
 }
 
 // Map simple operators to SQL
-impl Filter {
+impl SimpleFilter {
     pub fn to_sql_operator(&self) -> &'static str {
         match self.operator.as_str() {
             "is" => "=",
