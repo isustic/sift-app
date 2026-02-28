@@ -47,7 +47,7 @@ export function Step2_GroupBy({
         <div>
           <h3 className="text-lg font-semibold">Group Data</h3>
           <p className="text-sm text-muted-foreground">
-            Optionally group your data by specific columns
+            Add at least one column to group your data
           </p>
         </div>
         <Badge variant="secondary" className="text-sm">
@@ -60,7 +60,7 @@ export function Step2_GroupBy({
       {/* Add Group Column */}
       <div className="space-y-3">
         <label className="text-sm font-medium">
-          {hasGroups ? "Add another grouping level" : "Select columns to group by"}
+          {hasGroups ? "Add another grouping level" : "Select a column to group by"}
         </label>
 
         <div className="flex items-center gap-2">
@@ -88,10 +88,11 @@ export function Step2_GroupBy({
           <Button
             onClick={handleAddColumn}
             disabled={!selectedColumn}
-            size="icon"
             variant="outline"
+            className="gap-1"
           >
             <PlusIcon className="h-4 w-4" />
+            Add
           </Button>
         </div>
       </div>
@@ -140,10 +141,10 @@ export function Step2_GroupBy({
         <div className="rounded-md border border-dashed border-border/50 p-6 text-center">
           <DivideIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground mb-1">
-            No grouping applied
+            Add a grouping column above to continue
           </p>
           <p className="text-xs text-muted-foreground">
-            Your report will show all individual rows
+            At least one grouping column is required to proceed
           </p>
         </div>
       )}

@@ -261,11 +261,11 @@ export default function ReportPage() {
       case "columns":
         return query.displayColumns.length > 0;
       case "groupBy":
-        return true; // Optional step
+        return query.groupBy.length > 0; // Now requires at least one group
       case "calculate":
-        return true; // Optional step
+        return query.calculations.length > 0; // Now requires at least one calculation
       case "filters":
-        return query.filters.length > 0; // Now requires at least one filter
+        return query.filters.length > 0; // Requires at least one filter
       case "sort":
         return true; // Optional step
       case "run":
@@ -273,7 +273,7 @@ export default function ReportPage() {
       default:
         return false;
     }
-  }, [currentStep, query.displayColumns.length, query.filters.length, result]);
+  }, [currentStep, query.displayColumns.length, query.groupBy.length, query.calculations.length, query.filters.length, result]);
 
   const canGoBack = useCallback((): boolean => {
     return currentStep !== "columns";

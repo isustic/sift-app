@@ -165,10 +165,11 @@ export function Step5_Sort({
           <Button
             onClick={handleAddSort}
             disabled={!canAdd}
-            size="icon"
             variant="outline"
+            className="gap-1"
           >
             <PlusIcon className="h-4 w-4" />
+            Add
           </Button>
         </div>
       </div>

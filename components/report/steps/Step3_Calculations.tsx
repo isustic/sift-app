@@ -73,7 +73,7 @@ export function Step3_Calculations({
           <h3 className="text-lg font-semibold">Add Calculations</h3>
           <p className="text-sm text-muted-foreground">
             {hasGrouping
-              ? "Define aggregations for each group"
+              ? "Add at least one calculation to aggregate your data"
               : "Calculations are available when using grouping"}
           </p>
         </div>
@@ -161,10 +161,11 @@ export function Step3_Calculations({
               <Button
                 onClick={handleAddCalculation}
                 disabled={!canAdd}
-                size="icon"
                 variant="outline"
+                className="gap-1"
               >
                 <PlusIcon className="h-4 w-4" />
+                Add
               </Button>
             </div>
           </div>
@@ -213,6 +214,19 @@ export function Step3_Calculations({
             <div className="rounded-md border border-dashed border-border/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">
                 No numeric columns available for calculations
+              </p>
+            </div>
+          )}
+
+          {/* No calculations warning when grouping is active */}
+          {numericColumns.length > 0 && calculations.length === 0 && (
+            <div className="rounded-md border border-dashed border-border/50 p-4 text-center">
+              <SigmaIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                Add a calculation above to continue
+              </p>
+              <p className="text-xs text-muted-foreground">
+                At least one calculation is required when using grouping
               </p>
             </div>
           )}
