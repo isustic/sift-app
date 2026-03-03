@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { setLastOpenedDataset } from "@/lib/dataset-tracking";
 import { invoke } from "@tauri-apps/api/core";
 import { UploadZone } from "@/components/Upload/UploadZone";
 import { Database, FileSpreadsheet } from "lucide-react";
@@ -16,19 +18,36 @@ interface Dataset {
     created_at: string;
 }
 
-export default function UploadPage() {
+function UploadPageContent() {
+    const searchParams = useSearchParams();
     const [datasets, setDatasets] = useState<Dataset[]>([]);
     const [activeDataset, setActiveDataset] = useState<Dataset | null>(null);
 
     const loadDatasets = useCallback(async () => {
         const ds = await invoke<Dataset[]>("list_datasets");
         setDatasets(ds);
-        if (ds.length > 0 && !activeDataset) setActiveDataset(ds[0]);
+        if (ds.length > 0 && !activeDataset) {
+            const firstDataset = ds[0];
+            setActiveDataset(firstDataset);
+            setLastOpenedDataset(firstDataset.id);
+        }
     }, [activeDataset]);
 
     useEffect(() => {
         loadDatasets();
     }, []);
+
+    useEffect(() => {
+        // Handle dataset pre-selection from URL
+        const datasetId = searchParams.get("dataset");
+        if (datasetId && datasets.length > 0) {
+            const found = datasets.find((d) => d.id === Number(datasetId));
+            if (found) {
+                setActiveDataset(found);
+                setLastOpenedDataset(found.id);
+            }
+        }
+    }, [datasets, searchParams]);
 
     return (
         <div className="flex flex-col h-full bg-background/50 mesh-bg">
@@ -39,7 +58,7 @@ export default function UploadPage() {
                         <Database className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-sm font-semibold">Data Explorer</h1>
+                        <h1 className="text-sm font-semibold">Data explorer</h1>
                         <p className="text-[10px] text-muted-foreground">
                             {activeDataset ? `${activeDataset.row_count.toLocaleString()} rows · ${activeDataset.name}` : "No dataset"}
                         </p>
@@ -54,6 +73,7 @@ export default function UploadPage() {
                             const selected = datasets.find((ds) => ds.id === Number(value));
                             if (selected) {
                                 setActiveDataset(selected);
+                                setLastOpenedDataset(selected.id);
                             }
                         }}
                     >
@@ -79,7 +99,7 @@ export default function UploadPage() {
                             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
                                 <FileSpreadsheet className="w-7 h-7 text-primary" />
                             </div>
-                            <h2 className="text-lg font-semibold mb-2">Import your first Excel file</h2>
+                            <h2 className="text-lg font-semibold mb-2">Import your first excel file</h2>
                             <p className="text-sm text-muted-foreground">
                                 Upload Excel files to start analyzing data
                             </p>
@@ -101,5 +121,17 @@ export default function UploadPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function UploadPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-full items-center justify-center">
+                <div className="animate-pulse text-muted-foreground">Loading...</div>
+            </div>
+        }>
+            <UploadPageContent />
+        </Suspense>
     );
 }

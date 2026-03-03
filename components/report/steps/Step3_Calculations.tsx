@@ -16,6 +16,7 @@ interface Step3CalculationsProps {
   calculations: Calculation[]
   onAddCalculation: (calc: Calculation) => void
   onRemoveCalculation: (index: number) => void
+  onUpdateCalculation: (index: number, calc: Calculation) => void
   hasGrouping: boolean
 }
 
@@ -24,11 +25,14 @@ export function Step3_Calculations({
   calculations,
   onAddCalculation,
   onRemoveCalculation,
+  onUpdateCalculation,
   hasGrouping
 }: Step3CalculationsProps) {
   const [functionType, setFunctionType] = useState<string>("sum")
   const [selectedColumn, setSelectedColumn] = useState<string>("")
   const [alias, setAlias] = useState<string>("")
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState<string>("")
 
   // Only numeric columns for calculations
   const numericColumns = columns.filter(col => {
@@ -63,6 +67,27 @@ export function Step3_Calculations({
     setAlias("")
   }
 
+  const startEditing = (index: number, currentAlias: string) => {
+    setEditingIndex(index)
+    setEditValue(currentAlias)
+  }
+
+  const saveEdit = (index: number) => {
+    if (editValue.trim()) {
+      onUpdateCalculation(index, {
+        ...calculations[index],
+        alias: editValue.trim()
+      })
+    }
+    setEditingIndex(null)
+    setEditValue("")
+  }
+
+  const cancelEdit = () => {
+    setEditingIndex(null)
+    setEditValue("")
+  }
+
   const canAdd = selectedColumn && functionType && alias.trim()
 
   return (
@@ -70,7 +95,7 @@ export function Step3_Calculations({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Add Calculations</h3>
+          <h3 className="text-lg font-semibold">Add calculations</h3>
           <p className="text-sm text-muted-foreground">
             {hasGrouping
               ? "Add at least one calculation to aggregate your data"
@@ -102,9 +127,9 @@ export function Step3_Calculations({
               {calculations.length === 0 ? "Add your first calculation" : "Add another calculation"}
             </label>
 
-            <div className="grid grid-cols-[180px,1fr,200px,auto] gap-2 items-end">
+            <div className="flex flex-col gap-3">
               {/* Function Selector */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 w-[140px]">
                 <span className="text-xs text-muted-foreground">Function</span>
                 <Select value={functionType} onValueChange={setFunctionType}>
                   <SelectTrigger>
@@ -162,10 +187,10 @@ export function Step3_Calculations({
                 onClick={handleAddCalculation}
                 disabled={!canAdd}
                 variant="outline"
-                className="gap-1"
+                className="h-9 gap-1.5 bg-primary/10 border-primary/30 text-primary font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all w-fit"
               >
                 <PlusIcon className="h-4 w-4" />
-                Add
+                Add calculation
               </Button>
             </div>
           </div>
@@ -192,8 +217,39 @@ export function Step3_Calculations({
                         <span className="text-sm text-muted-foreground">of</span>
                         <span className="font-medium text-sm">{calc.column}</span>
                         <span className="text-muted-foreground">as</span>
-                        <span className="font-medium text-sm">{calc.alias}</span>
-                        <div className="flex-1" />
+                        {editingIndex === index ? (
+                          <div className="flex items-center gap-1 flex-1">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEdit(index)
+                                if (e.key === "Escape") cancelEdit()
+                              }}
+                              className="h-7 text-sm max-w-[200px]"
+                              autoFocus
+                            />
+                            <Button
+                              onClick={() => saveEdit(index)}
+                              size="icon-xs"
+                              variant="ghost"
+                              className="h-7 w-7"
+                            >
+                              <PlusIcon className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEditing(index, calc.alias)}
+                              className="font-medium text-sm hover:text-primary hover:underline underline-offset-2 transition-colors"
+                              title="Click to edit display name"
+                            >
+                              {calc.alias}
+                            </button>
+                            <div className="flex-1" />
+                          </>
+                        )}
                         <Button
                           onClick={() => onRemoveCalculation(index)}
                           size="icon-xs"

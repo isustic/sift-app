@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import {
     Sun, Moon,
     Database, BarChart3, TrendingUp, Clock, Star,
-    Trash2, RotateCcw, Package
+    Trash2, Package, AlertTriangle, FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Check, X } from "lucide-react";
 
 type Theme = "dark" | "light";
 
@@ -44,6 +47,15 @@ interface Favorite {
     created_at: string;
 }
 
+interface Dataset {
+    id: number;
+    name: string;
+    file_origin: string;
+    table_name: string;
+    row_count: number;
+    created_at: string;
+}
+
 function useTheme(): [Theme, (t: Theme) => void] {
     const [theme, setThemeState] = useState<Theme>("dark");
 
@@ -68,6 +80,10 @@ export default function SettingsPage() {
     const [activity, setActivity] = useState<ActivityDay[]>([]);
     const [queryHistory, setQueryHistory] = useState<QueryEntry[]>([]);
     const [favorites, setFavorites] = useState<Favorite[]>([]);
+    const [datasets, setDatasets] = useState<Dataset[]>([]);
+    const [isDeleting, setIsDeleting] = useState<number | null>(null);
+    const [editingDatasetId, setEditingDatasetId] = useState<number | null>(null);
+    const [editValue, setEditValue] = useState<string>("");
 
     useEffect(() => {
         loadAnalytics();
@@ -75,19 +91,68 @@ export default function SettingsPage() {
 
     const loadAnalytics = async () => {
         try {
-            const [statsData, activityData, historyData, favoritesData] = await Promise.all([
+            const [statsData, activityData, historyData, favoritesData, datasetsData] = await Promise.all([
                 invoke<UsageStats>("get_usage_stats"),
                 invoke<ActivityDay[]>("get_activity_heatmap", { days: 90 }),
                 invoke<QueryEntry[]>("get_query_history", { limit: 10 }),
                 invoke<Favorite[]>("get_favorites"),
+                invoke<Dataset[]>("list_datasets"),
             ]);
             setStats(statsData);
             setActivity(activityData);
             setQueryHistory(historyData);
             setFavorites(favoritesData);
+            setDatasets(datasetsData);
         } catch (error) {
             console.error("Failed to load analytics:", error);
         }
+    };
+
+    const handleDeleteDataset = async (datasetId: number, datasetName: string) => {
+        // Confirm before deleting
+        const confirmed = window.confirm(
+            `Are you sure you want to delete "${datasetName}"? This action cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setIsDeleting(datasetId);
+        try {
+            await invoke("delete_dataset", { datasetId });
+            setDatasets((prev) => prev.filter((d) => d.id !== datasetId));
+        } catch (error) {
+            console.error("Failed to delete dataset:", error);
+            alert("Failed to delete dataset. Please try again.");
+        } finally {
+            setIsDeleting(null);
+        }
+    };
+
+    const handleStartEditing = (datasetId: number, currentName: string) => {
+        setEditingDatasetId(datasetId);
+        setEditValue(currentName);
+    };
+
+    const handleSaveEdit = async (datasetId: number) => {
+        const trimmedName = editValue.trim();
+        if (!trimmedName) return;
+
+        try {
+            await invoke("rename_dataset", { datasetId, newName: trimmedName });
+            setDatasets((prev) =>
+                prev.map((d) => (d.id === datasetId ? { ...d, name: trimmedName } : d))
+            );
+        } catch (error) {
+            console.error("Failed to rename dataset:", error);
+            alert("Failed to rename dataset. Please try again.");
+        } finally {
+            setEditingDatasetId(null);
+            setEditValue("");
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingDatasetId(null);
+        setEditValue("");
     };
 
     const handleRemoveFavorite = async (id: number) => {
@@ -96,18 +161,6 @@ export default function SettingsPage() {
             setFavorites((prev) => prev.filter((f) => f.id !== id));
         } catch (error) {
             console.error("Failed to remove favorite:", error);
-        }
-    };
-
-    const handleRerunQuery = async (configStr: string) => {
-        try {
-            const config = JSON.parse(configStr);
-            const result = await invoke("run_report", { query: config });
-            // Navigate to report page with results
-            // For now, just log it
-            console.log("Rerun query result:", result);
-        } catch (error) {
-            console.error("Failed to rerun query:", error);
         }
     };
 
@@ -170,7 +223,7 @@ export default function SettingsPage() {
                     <section className="space-y-5">
                         <div className="flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-accent" />
-                            <h2 className="text-sm font-medium">Your Analytics</h2>
+                            <h2 className="text-sm font-medium">Your analytics</h2>
                         </div>
 
                         {/* Stats Cards */}
@@ -252,56 +305,134 @@ export default function SettingsPage() {
                         )}
                     </section>
 
-                    {/* ── Query History ── */}
+                    {/* ── Recent Reports ── */}
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-accent" />
-                            <h2 className="text-sm font-medium">Recent Reports</h2>
+                            <h2 className="text-sm font-medium">Recent reports</h2>
                         </div>
 
-                        {queryHistory.length > 0 ? (
+                        <div className="bg-card/30 border border-border/40 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <BarChart3 className="w-5 h-5 text-accent" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-semibold text-foreground">{queryHistory.length}</p>
+                                        <p className="text-xs text-muted-foreground">reports run</p>
+                                    </div>
+                                </div>
+                                {queryHistory.length > 0 && (
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground">
+                                            Latest: {formatDate(queryHistory[0].timestamp)}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ── Datasets Management ── */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileSpreadsheet className="w-4 h-4 text-accent" />
+                                <h2 className="text-sm font-medium">Datasets</h2>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{datasets.length} imported</span>
+                        </div>
+
+                        {datasets.length > 0 ? (
                             <div className="bg-card/30 border border-border/40 rounded-xl divide-y divide-border/40">
-                                {queryHistory.map((entry) => {
-                                    let config;
-                                    try {
-                                        config = JSON.parse(entry.report_config);
-                                    } catch {
-                                        return null;
-                                    }
-                                    return (
-                                        <div key={entry.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                                                    <BarChart3 className="w-4 h-4 text-accent" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium">
-                                                        {config.calculations?.length > 0
-                                                            ? `Aggregation (${config.calculations.length} calculations)`
-                                                            : `Raw Data (${config.display_columns?.length || 0} columns)`
-                                                        }
-                                                    </p>
-                                                    <p className="text-[10px] text-muted-foreground">
-                                                        {entry.row_count} rows • {formatDate(entry.timestamp)}
-                                                    </p>
-                                                </div>
+                                {datasets.map((dataset) => (
+                                    <div
+                                        key={dataset.id}
+                                        className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                <Database className="w-5 h-5 text-primary" />
                                             </div>
-                                            <button
-                                                onClick={() => handleRerunQuery(entry.report_config)}
-                                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-accent/20 hover:text-accent transition-colors"
-                                            >
-                                                <RotateCcw size={12} />
-                                                Rerun
-                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                {editingDatasetId === dataset.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Input
+                                                            value={editValue}
+                                                            onChange={(e) => setEditValue(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter") handleSaveEdit(dataset.id);
+                                                                if (e.key === "Escape") handleCancelEdit();
+                                                            }}
+                                                            className="h-7 text-sm w-full max-w-[350px]"
+                                                            autoFocus
+                                                        />
+                                                        <Button
+                                                            onClick={() => handleSaveEdit(dataset.id)}
+                                                            size="icon-xs"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 text-primary hover:bg-primary/10"
+                                                        >
+                                                            <Check size={14} />
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleCancelEdit}
+                                                            size="icon-xs"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 text-muted-foreground hover:bg-muted/20"
+                                                        >
+                                                            <X size={14} />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleStartEditing(dataset.id, dataset.name)}
+                                                            className="text-sm font-medium truncate hover:text-primary hover:underline underline-offset-2 transition-colors text-left w-full"
+                                                        >
+                                                            {dataset.name}
+                                                        </button>
+                                                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                                                            <span>{dataset.row_count.toLocaleString()} rows</span>
+                                                            <span>·</span>
+                                                            <span className="truncate">{dataset.file_origin}</span>
+                                                            <span>·</span>
+                                                            <span>{formatDate(dataset.created_at)}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    );
-                                })}
+                                        {editingDatasetId !== dataset.id && (
+                                            <Button
+                                                onClick={() => handleDeleteDataset(dataset.id, dataset.name)}
+                                                disabled={isDeleting === dataset.id}
+                                                variant="ghost"
+                                                size="sm"
+                                                className="shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            >
+                                                {isDeleting === dataset.id ? (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                                        Deleting...
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Trash2 size={14} />
+                                                        Delete
+                                                    </span>
+                                                )}
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <div className="bg-card/30 border border-border/40 rounded-xl p-8 text-center">
-                                <Clock className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
-                                <p className="text-sm text-muted-foreground">No report history yet</p>
-                                <p className="text-xs text-muted-foreground/60">Run some reports to see them here</p>
+                                <FileSpreadsheet className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
+                                <p className="text-sm text-muted-foreground">No datasets yet</p>
+                                <p className="text-xs text-muted-foreground/60">Import Excel files from the Data Explorer</p>
                             </div>
                         )}
                     </section>
@@ -386,7 +517,7 @@ export default function SettingsPage() {
                     <section className="space-y-3 pt-4 border-t border-border/50">
                         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">About</h2>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>EPP Analytics</span>
+                            <span>Sift</span>
                             <span className="w-px h-3 bg-border/50" />
                             <span className="font-data">Version 0.1.0</span>
                             <span className="w-px h-3 bg-border/50" />

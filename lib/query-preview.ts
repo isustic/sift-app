@@ -19,7 +19,7 @@ const OPERATOR_WORDS: OperatorMap = {
 };
 
 const FUNCTION_WORDS: { [key: string]: string } = {
-  "sum": "Total of",
+  "sum": "Sum of",
   "count": "Count of",
   "avg": "Average of",
   "min": "Minimum of",
@@ -127,7 +127,7 @@ export function getOperatorsForType(columnType: "text" | "number" | "date"): Arr
 
 export function getAggregationOptions(): Array<{ value: string; label: string }> {
   return [
-    { value: "sum", label: "Total of..." },
+    { value: "sum", label: "Sum of..." },
     { value: "count", label: "Count of..." },
     { value: "avg", label: "Average of..." },
     { value: "min", label: "Minimum of..." },

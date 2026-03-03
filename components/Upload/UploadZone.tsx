@@ -148,7 +148,7 @@ export function UploadZone({ onSuccess, compact = false }: UploadZoneProps) {
                     </div>
 
                     <div className="text-center space-y-1">
-                        <p className="text-sm font-medium">Drag your Excel file here</p>
+                        <p className="text-sm font-medium">Drag your excel file here</p>
                         <p className="text-xs text-muted-foreground">or browse to select an .xlsx file</p>
                     </div>
 
@@ -159,7 +159,7 @@ export function UploadZone({ onSuccess, compact = false }: UploadZoneProps) {
                         className="gap-2 border-border/50 hover:border-primary/50 hover:bg-primary/5"
                     >
                         <FolderOpen size={14} />
-                        Choose File…
+                        Choose file…
                     </Button>
 
                     {/* File format hint */}

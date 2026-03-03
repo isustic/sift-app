@@ -7,6 +7,16 @@ export interface SimpleQuery {
   filters: Filter[];
   sortBy: SortColumn[];
   limit: number | null;
+  chartConfig?: ChartConfig;
+}
+
+// Chart types
+export type ChartType = "bar" | "column" | "line" | "pie" | "area";
+
+export interface ChartConfig {
+  enabled: boolean;
+  type: ChartType;
+  title?: string;
 }
 
 export interface Calculation {
@@ -59,4 +69,10 @@ export interface ReportResult {
   rows: Record<string, unknown>[];
   queryTime: number;
   rowCount: number;
+}
+
+// UI State for column-level sort (used in results view)
+export interface ColumnSort {
+  column: string | null
+  direction: 'asc' | 'desc' | null
 }

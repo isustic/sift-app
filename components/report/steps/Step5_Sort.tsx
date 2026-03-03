@@ -82,7 +82,7 @@ export function Step5_Sort({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Sort & Limit</h3>
+          <h3 className="text-lg font-semibold">Sort & limit</h3>
           <p className="text-sm text-muted-foreground">
             Control the order and number of results
           </p>
@@ -100,8 +100,7 @@ export function Step5_Sort({
           {sortBy.length === 0 ? "Add your first sort level" : "Add another sort level"}
         </label>
 
-        <div className="grid grid-cols-[1fr,100px,auto] gap-2 items-end">
-          {/* Column Selector */}
+        <div className="flex flex-col gap-3">
           <div className="space-y-1.5">
             <span className="text-xs text-muted-foreground">Column</span>
             <Select
@@ -166,10 +165,10 @@ export function Step5_Sort({
             onClick={handleAddSort}
             disabled={!canAdd}
             variant="outline"
-            className="gap-1"
+            className="h-9 gap-1.5 bg-primary/10 border-primary/30 text-primary font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all w-fit"
           >
             <PlusIcon className="h-4 w-4" />
-            Add
+            Add sort
           </Button>
         </div>
       </div>

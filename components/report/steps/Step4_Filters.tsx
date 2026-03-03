@@ -67,7 +67,7 @@ export function Step4_Filters({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Filter Data</h3>
+          <h3 className="text-lg font-semibold">Filter data</h3>
           <p className="text-sm text-muted-foreground">
             Add at least one filter to narrow your results
           </p>
@@ -85,7 +85,7 @@ export function Step4_Filters({
           {filters.length === 0 ? "Add your first filter" : "Add another filter"}
         </label>
 
-        <div className="grid grid-cols-[1fr,140px,1fr,auto] gap-2 items-end">
+        <div className="flex flex-col gap-3">
           {/* Column Selector */}
           <div className="space-y-1.5">
             <span className="text-xs text-muted-foreground">Column</span>
@@ -146,10 +146,10 @@ export function Step4_Filters({
             onClick={handleAddFilter}
             disabled={!canAdd}
             variant="outline"
-            className="gap-1"
+            className="h-9 gap-1.5 bg-primary/10 border-primary/30 text-primary font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all w-fit"
           >
             <PlusIcon className="h-4 w-4" />
-            Add
+            Add filter
           </Button>
         </div>
       </div>

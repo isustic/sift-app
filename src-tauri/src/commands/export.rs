@@ -1,4 +1,4 @@
-use rust_xlsxwriter::{Format, FormatBorder, Workbook};
+use rust_xlsxwriter::{Format, FormatBorder, Workbook, Image};
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
@@ -6,13 +6,28 @@ use tauri_plugin_dialog::DialogExt;
 pub async fn export_report(
     rows: Vec<serde_json::Value>,
     columns: Vec<String>,
+    template_name: Option<String>,
+    chart_image: Option<Vec<u8>>,
     app: AppHandle,
 ) -> Result<String, String> {
-    // Open native save dialog
+    // Generate default filename with today's date
+    let default_filename = if let Some(name) = template_name {
+        // Sanitize template name for filename (replace spaces/invalid chars with underscore)
+        let sanitized: String = name
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '_' })
+            .collect();
+        format!("{}_{}.xlsx", sanitized, chrono::Local::now().format("%Y-%m-%d"))
+    } else {
+        format!("Report_{}.xlsx", chrono::Local::now().format("%Y-%m-%d"))
+    };
+
+    // Open native save dialog with default filename
     let path = app
         .dialog()
         .file()
         .add_filter("Excel Spreadsheet", &["xlsx"])
+        .set_file_name(&default_filename)
         .blocking_save_file()
         .ok_or("Export cancelled")?;
 
@@ -67,6 +82,35 @@ pub async fn export_report(
 
     // Auto-fit columns
     sheet.autofit();
+
+    // Add chart image if provided
+    if let Some(image_data) = chart_image {
+        // Calculate position for chart (below the table)
+        let table_end_row = (rows.len() + 3) as u32; // +3 for headers and spacing
+
+        // Create a temporary file for the image
+        let temp_image_path = format!(
+            "{}/chart_export_{}.png",
+            std::env::temp_dir().display(),
+            chrono::Local::now().format("%Y%m%d_%H%M%S_%3f")
+        );
+
+        // Write image data to temp file
+        std::fs::write(&temp_image_path, &image_data)
+            .map_err(|e| format!("Failed to write chart image: {e}"))?;
+
+        // Create image and handle the Result
+        let img = Image::new(&temp_image_path)
+            .map_err(|e| format!("Failed to create image: {e}"))?;
+
+        // Add image to worksheet using the correct API
+        sheet
+            .embed_image(table_end_row, 0, &img)
+            .map_err(|e| format!("Failed to add chart image: {e}"))?;
+
+        // Clean up temp file
+        let _ = std::fs::remove_file(&temp_image_path);
+    }
 
     workbook
         .save(&path_str)

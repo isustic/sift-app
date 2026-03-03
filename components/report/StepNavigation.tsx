@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 
-export type StepType = "columns" | "groupBy" | "calculate" | "filters" | "sort" | "run";
+export type StepType = "columns" | "groupBy" | "calculate" | "filters" | "sort" | "run" | "charts";
 
 export interface Step {
   id: StepType;
@@ -11,11 +11,12 @@ export interface Step {
 
 const STEPS: Step[] = [
   { id: "columns", label: "Columns", index: 0 },
-  { id: "groupBy", label: "Group By", index: 1 },
+  { id: "groupBy", label: "Group by", index: 1 },
   { id: "calculate", label: "Calculate", index: 2 },
   { id: "filters", label: "Filters", index: 3 },
   { id: "sort", label: "Sort", index: 4 },
   { id: "run", label: "Run", index: 5 },
+  { id: "charts", label: "Charts", index: 6 },
 ];
 
 interface StepNavigationProps {

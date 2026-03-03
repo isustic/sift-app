@@ -67,8 +67,8 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "item-aligned",
-  align = "center",
+  position = "popper",
+  align = "start",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -77,10 +77,10 @@ function SelectContent({
         data-slot="select-content"
         className={cn(
           // Base styles
-          "relative z-50 min-w-[8rem] overflow-hidden rounded-xl",
-          // Eco theme styling
-          "bg-card border border-border/60 shadow-lg",
-          "text-popover-foreground",
+          "relative z-50 min-w-[8rem] max-h-80 overflow-hidden rounded-xl",
+          // Solid background - no transparency
+          "bg-background border border-border shadow-xl",
+          "text-foreground",
           // Animation
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

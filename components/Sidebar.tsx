@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft, FileSpreadsheet, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-    { href: "/upload", label: "Raw Data", icon: Database },
-    { href: "/report", label: "Report Builder", icon: BarChart3 },
-    { href: "/istoric", label: "Istoric", icon: History },
+    { href: "/", label: "Home", icon: Home },
+    { href: "/upload", label: "Raw data", icon: Database },
+    { href: "/report", label: "Report builder", icon: BarChart3 },
+    { href: "/epp", label: "EPP", icon: FileSpreadsheet },
+    { href: "/istoric", label: "History", icon: History },
     { href: "/settings", label: "Settings", icon: Settings2 },
 ];
 
@@ -64,11 +66,11 @@ export function Sidebar() {
             {/* Logo with collapse toggle */}
             <div className="h-16 flex items-center justify-between px-3 border-b border-border/40 relative z-10">
                 <div className={cn(
-                    "flex items-center transition-all duration-300",
-                    collapsed ? "justify-center w-full" : "gap-2.5"
+                    "flex items-center transition-all duration-300 relative",
+                    collapsed ? "justify-center w-full group" : "gap-2.5"
                 )}>
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-[#D4B896] flex items-center justify-center shadow-lg shrink-0">
-                        <Sprout className="w-4 h-4 text-primary" strokeWidth={2} />
+                    <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                        <img src="/logo.png" alt="Sift Logo" className="w-full h-full object-contain drop-shadow-sm group-hover:opacity-0 transition-opacity duration-200" />
                     </div>
                     <div className={cn(
                         "transition-opacity duration-200 overflow-hidden",
@@ -76,33 +78,45 @@ export function Sidebar() {
                     )}>
                         <div>
                             <span className="text-base font-medium tracking-tight text-gradient-botanical font-display block">
-                                EPP Analytics
+                                Sift
                             </span>
                             <span className="text-[9px] text-muted-foreground/60 uppercase tracking-[0.2em] font-body block">
-                                Botanical Insights
+                                Data Refined
                             </span>
                         </div>
                     </div>
+
+                    {/* Collapse toggle button - hidden when collapsed, shown on logo hover */}
+                    <button
+                        onClick={toggleCollapsed}
+                        className={cn(
+                            "shrink-0 rounded-lg flex items-center justify-center transition-all duration-200",
+                            "hover:bg-accent/20 hover:text-accent text-muted-foreground bg-card",
+                            "w-8 h-8",
+                            collapsed ? "opacity-0 group-hover:opacity-100 absolute" : "opacity-100 hidden"
+                        )}
+                        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                        <PanelLeft size={18} />
+                    </button>
                 </div>
 
-                {/* Collapse toggle button */}
-                <button
-                    onClick={toggleCollapsed}
-                    className={cn(
-                        "shrink-0 rounded-lg flex items-center justify-center transition-all duration-200",
-                        "hover:bg-accent/20 hover:text-accent text-muted-foreground",
-                        "w-8 h-8"
-                    )}
-                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                    {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-                </button>
+                {/* Collapse button - shown when expanded */}
+                {!collapsed && (
+                    <button
+                        onClick={toggleCollapsed}
+                        className="shrink-0 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-accent/20 hover:text-accent text-muted-foreground w-8 h-8"
+                        aria-label="Collapse sidebar"
+                    >
+                        <PanelLeftClose size={18} />
+                    </button>
+                )}
             </div>
 
             {/* Navigation */}
             <nav className="flex-1 px-3 py-6 space-y-1 relative z-10">
                 {navItems.map(({ href, label, icon: Icon }, idx) => {
-                    const active = pathname.startsWith(href);
+                    const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
                     return (
                         <Link
                             key={href}

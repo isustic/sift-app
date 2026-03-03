@@ -42,6 +42,9 @@ pub fn run() {
             commands::analytics::add_favorite,
             commands::analytics::remove_favorite,
             commands::analytics::get_favorites,
+            commands::epp::get_unique_agents,
+            commands::epp::get_agents_for_dataset,
+            commands::epp::generate_epp_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

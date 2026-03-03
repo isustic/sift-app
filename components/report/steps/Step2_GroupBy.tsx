@@ -45,7 +45,7 @@ export function Step2_GroupBy({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Group Data</h3>
+          <h3 className="text-lg font-semibold">Group data</h3>
           <p className="text-sm text-muted-foreground">
             Add at least one column to group your data
           </p>
@@ -63,36 +63,39 @@ export function Step2_GroupBy({
           {hasGroups ? "Add another grouping level" : "Select a column to group by"}
         </label>
 
-        <div className="flex items-center gap-2">
-          <Select
-            value={selectedColumn}
-            onValueChange={setSelectedColumn}
-            disabled={availableColumns.length === 0}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder={
-                availableColumns.length === 0
-                  ? "No more columns available"
-                  : "Choose a column"
-              } />
-            </SelectTrigger>
-            <SelectContent>
-              {availableColumns.map((col) => (
-                <SelectItem key={col.id} value={col.name}>
-                  {col.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-3">
+          <div className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">Column</span>
+            <Select
+              value={selectedColumn}
+              onValueChange={setSelectedColumn}
+              disabled={availableColumns.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  availableColumns.length === 0
+                    ? "No more columns available"
+                    : "Choose a column"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {availableColumns.map((col) => (
+                  <SelectItem key={col.id} value={col.name}>
+                    {col.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <Button
             onClick={handleAddColumn}
             disabled={!selectedColumn}
             variant="outline"
-            className="gap-1"
+            className="h-9 gap-1.5 bg-primary/10 border-primary/30 text-primary font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all w-fit"
           >
             <PlusIcon className="h-4 w-4" />
-            Add
+            Add group
           </Button>
         </div>
       </div>

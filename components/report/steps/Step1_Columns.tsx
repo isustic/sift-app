@@ -42,7 +42,7 @@ export function Step1_Columns({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Select Columns</h3>
+          <h3 className="text-lg font-semibold">Select columns</h3>
           <p className="text-sm text-muted-foreground">
             Choose which columns to include in your report
           </p>
@@ -63,7 +63,7 @@ export function Step1_Columns({
           disabled={allSelected}
         >
           <CheckIcon className="h-4 w-4 mr-1" />
-          Select All
+          Select all
         </Button>
         <Button
           variant="outline"
@@ -72,7 +72,7 @@ export function Step1_Columns({
           disabled={selectedColumns.length === 0}
         >
           <SquareIcon className="h-4 w-4 mr-1" />
-          Select None
+          Select none
         </Button>
       </div>
 
