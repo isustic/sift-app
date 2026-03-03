@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { setLastOpenedDataset } from "@/lib/dataset-tracking";
 import { invoke } from "@tauri-apps/api/core";
+import { useRouter } from "next/navigation";
 import { History, Calendar } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { HistoricDataModal } from "@/components/Upload/HistoricDataModal";
 import { TimelineNode, DatasetCard, SearchBar, FilterChips, StatsBar } from "@/components/History";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +25,10 @@ interface Dataset {
 type TimeFilter = 'all' | 'today' | 'week' | 'month' | 'year';
 
 export default function IstoricPage() {
+    const router = useRouter();
     const [datasets, setDatasets] = useState<Dataset[]>([]);
     const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
     const [expandedMonths, setExpandedMonths] = useState<Map<number, Set<number>>>(new Map());
-    const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
-    const [modalOpen, setModalOpen] = useState(false);
 
     // Search and filter state
     const [searchQuery, setSearchQuery] = useState("");
@@ -194,10 +193,9 @@ export default function IstoricPage() {
         });
     };
 
-    const openDatasetModal = (dataset: Dataset) => {
+    const openDataset = (dataset: Dataset) => {
         setLastOpenedDataset(dataset.id);
-        setSelectedDataset(dataset);
-        setModalOpen(true);
+        router.push(`/upload?dataset=${dataset.id}`);
     };
 
     const sortedYears = Array.from(groups.keys()).sort((a, b) => b - a);
@@ -341,7 +339,7 @@ export default function IstoricPage() {
                                                                             createdAt={dataset.created_at}
                                                                             fileOrigin={dataset.file_origin}
                                                                             rowCount={dataset.row_count}
-                                                                            onClick={() => openDatasetModal(dataset)}
+                                                                            onClick={() => openDataset(dataset)}
                                                                         />
                                                                     ))}
                                                                 </CollapsibleContent>
@@ -358,19 +356,6 @@ export default function IstoricPage() {
                     </div>
                 )}
             </div>
-
-            {/* Modal */}
-            {selectedDataset && (
-                <HistoricDataModal
-                    open={modalOpen}
-                    onOpenChange={setModalOpen}
-                    datasetId={selectedDataset.id}
-                    datasetName={selectedDataset.name}
-                    fileOrigin={selectedDataset.file_origin}
-                    rowCount={selectedDataset.row_count}
-                    createdAt={selectedDataset.created_at}
-                />
-            )}
         </div>
     );
 }
