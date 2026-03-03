@@ -175,39 +175,9 @@ export default function IstoricPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto p-6">
-                {/* Search Bar */}
-                {datasets.length > 0 && (
-                    <div className="mb-6">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                                type="text"
-                                placeholder="Search by name, date, file path..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 pr-10 bg-card/50 border-border/50 focus:border-accent/50 focus:ring-accent/20 transition-all"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={clearSearch}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors"
-                                    aria-label="Clear search"
-                                >
-                                    <X className="w-3.5 h-3.5 text-muted-foreground" />
-                                </button>
-                            )}
-                        </div>
-                        {searchQuery && (
-                            <p className="text-xs text-muted-foreground mt-2">
-                                {filteredDatasets.length} {filteredDatasets.length === 1 ? 'result' : 'results'} found
-                            </p>
-                        )}
-                    </div>
-                )}
-
+            <div className="flex-1 overflow-auto">
                 {datasets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="flex flex-col items-center justify-center h-full text-center p-6">
                         <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
                             <Calendar className="w-7 h-7 text-muted-foreground/50" />
                         </div>
@@ -216,25 +186,55 @@ export default function IstoricPage() {
                             Importă fișiere Excel pentru a vedea istoricul
                         </p>
                     </div>
-                ) : filteredDatasets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                        <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
-                            <Search className="w-7 h-7 text-muted-foreground/50" />
-                        </div>
-                        <h2 className="text-lg font-semibold mb-2 text-foreground">No results found</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Try adjusting your search query
-                        </p>
-                        <button
-                            onClick={clearSearch}
-                            className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                        >
-                            Clear search
-                        </button>
-                    </div>
                 ) : (
-                    <div className="max-w-3xl mx-auto space-y-3">
-                        {sortedYears.map((year) => {
+                    <div className="max-w-3xl mx-auto p-6">
+                        {/* Search Bar */}
+                        <div className="mb-6">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search by name, date, file path..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10 pr-10 bg-card/50 border-border/50 focus:border-accent/50 focus:ring-accent/20 transition-all"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={clearSearch}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors"
+                                        aria-label="Clear search"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-muted-foreground" />
+                                    </button>
+                                )}
+                            </div>
+                            {searchQuery && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    {filteredDatasets.length} {filteredDatasets.length === 1 ? 'result' : 'results'} found
+                                </p>
+                            )}
+                        </div>
+
+                        {filteredDatasets.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center">
+                                <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
+                                    <Search className="w-7 h-7 text-muted-foreground/50" />
+                                </div>
+                                <h2 className="text-lg font-semibold mb-2 text-foreground">No results found</h2>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Try adjusting your search query
+                                </p>
+                                <button
+                                    onClick={clearSearch}
+                                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                                >
+                                    Clear search
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {sortedYears.map((year) => {
                             const yearExpanded = expandedYears.has(year);
                             const yearGroups = groups.get(year)!;
                             const sortedMonths = Array.from(yearGroups.keys()).sort((a, b) => b - a);
@@ -315,6 +315,8 @@ export default function IstoricPage() {
                                 </Collapsible>
                             );
                         })}
+                    </div>
+                        )}
                     </div>
                 )}
             </div>
