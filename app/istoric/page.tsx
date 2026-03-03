@@ -44,6 +44,26 @@ export default function IstoricPage() {
         loadDatasets();
     }, [loadDatasets]);
 
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Cmd/Ctrl + F - Focus search
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+                searchInput?.focus();
+            }
+
+            // Escape - Clear search
+            if (e.key === 'Escape' && searchQuery) {
+                setSearchQuery('');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [searchQuery]);
+
     // Filter datasets based on search and time filter
     const filteredDatasets = useMemo(() => {
         let filtered = datasets;
