@@ -8,20 +8,13 @@ interface TimelineNodeProps {
   label: string | number;
   count?: number;
   expanded: boolean;
-  onClick: () => void;
 }
 
-export function TimelineNode({ type, label, count, expanded, onClick }: TimelineNodeProps) {
+export function TimelineNode({ type, label, count, expanded }: TimelineNodeProps) {
   const isYear = type === 'year';
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 w-full transition-all duration-300",
-        "hover:scale-[1.02] active:scale-[0.98]"
-      )}
-    >
+    <div className="flex items-center gap-3 w-full">
       {/* Timeline node */}
       <div className="relative">
         {/* Glow effect */}
@@ -69,6 +62,6 @@ export function TimelineNode({ type, label, count, expanded, onClick }: Timeline
           !expanded && "-rotate-90"
         )} />
       )}
-    </button>
+    </div>
   );
 }

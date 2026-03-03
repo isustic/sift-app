@@ -287,7 +287,7 @@ export default function IstoricPage() {
                                                 onOpenChange={() => toggleYear(year)}
                                             >
                                                 {/* Year Header */}
-                                                <CollapsibleTrigger className="w-full">
+                                                <CollapsibleTrigger className="w-full hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
                                                     <div className="relative pr-4">
                                                         {/* Connector from spine to node */}
                                                         <div className="absolute left-[19px] top-1/2 -translate-y-1/2 w-6 h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
@@ -297,7 +297,6 @@ export default function IstoricPage() {
                                                             label={year}
                                                             count={yearDatasetCount}
                                                             expanded={yearExpanded}
-                                                            onClick={() => toggleYear(year)}
                                                         />
                                                     </div>
                                                 </CollapsibleTrigger>
@@ -315,7 +314,10 @@ export default function IstoricPage() {
                                                                 onOpenChange={() => toggleMonth(year, month)}
                                                             >
                                                                 {/* Month Header */}
-                                                                <CollapsibleTrigger className="w-full">
+                                                                <button
+                                                                    onClick={() => toggleMonth(year, month)}
+                                                                    className="w-full hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+                                                                >
                                                                     <div className="relative">
                                                                         {/* Connector from year to month */}
                                                                         <div className="absolute left-[19px] top-0 w-0.5 h-6 bg-gradient-to-b from-primary/30 to-transparent" />
@@ -325,10 +327,9 @@ export default function IstoricPage() {
                                                                             label={ROMANIAN_MONTHS[month]}
                                                                             count={monthDatasets.length}
                                                                             expanded={monthExpanded ?? false}
-                                                                            onClick={() => toggleMonth(year, month)}
                                                                         />
                                                                     </div>
-                                                                </CollapsibleTrigger>
+                                                                </button>
 
                                                                 {/* Datasets */}
                                                                 <CollapsibleContent className="mt-1.5 ml-6 space-y-1.5">
