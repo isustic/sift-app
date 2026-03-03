@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { History, ChevronDown, ChevronRight, FileSpreadsheet, Calendar } from "lucide-react";
+import { History, ChevronDown, ChevronRight, FileSpreadsheet, Calendar, Search, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { HistoricDataModal } from "@/components/Upload/HistoricDataModal";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const ROMANIAN_MONTHS = [
@@ -27,6 +28,9 @@ export default function IstoricPage() {
     const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
 
+    // Search state
+    const [searchQuery, setSearchQuery] = useState("");
+
     const loadDatasets = useCallback(async () => {
         const ds = await invoke<Dataset[]>("list_datasets");
         setDatasets(ds);
@@ -36,11 +40,45 @@ export default function IstoricPage() {
         loadDatasets();
     }, [loadDatasets]);
 
+    // Filter datasets based on search query
+    const filteredDatasets = useMemo(() => {
+        if (!searchQuery.trim()) {
+            return datasets;
+        }
+
+        const query = searchQuery.toLowerCase();
+        return datasets.filter(ds => {
+            // Search in name
+            if (ds.name.toLowerCase().includes(query)) {
+                return true;
+            }
+
+            // Search in file origin
+            if (ds.file_origin.toLowerCase().includes(query)) {
+                return true;
+            }
+
+            // Search in date (DD-MM-YYYY format)
+            const date = new Date(ds.created_at);
+            const dateString = `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getFullYear()}`;
+            if (dateString.includes(query)) {
+                return true;
+            }
+
+            // Search in row count
+            if (ds.row_count.toString().includes(query)) {
+                return true;
+            }
+
+            return false;
+        });
+    }, [datasets, searchQuery]);
+
     // Group datasets by year -> month
     const groupedDatasets = useCallback((): Map<number, Map<number, Dataset[]>> => {
         const groups = new Map<number, Map<number, Dataset[]>>();
 
-        for (const ds of datasets) {
+        for (const ds of filteredDatasets) {
             const date = new Date(ds.created_at);
             const year = date.getFullYear();
             const month = date.getMonth();
@@ -119,6 +157,8 @@ export default function IstoricPage() {
 
     const sortedYears = Array.from(groups.keys()).sort((a, b) => b - a);
 
+    const clearSearch = () => setSearchQuery("");
+
     return (
         <div className="flex flex-col h-full bg-background/50 mesh-bg">
             {/* Header */}
@@ -136,6 +176,36 @@ export default function IstoricPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-auto p-6">
+                {/* Search Bar */}
+                {datasets.length > 0 && (
+                    <div className="mb-6">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            <Input
+                                type="text"
+                                placeholder="Search by name, date, file path..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 pr-10 bg-card/50 border-border/50 focus:border-accent/50 focus:ring-accent/20 transition-all"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={clearSearch}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                                </button>
+                            )}
+                        </div>
+                        {searchQuery && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                                {filteredDatasets.length} {filteredDatasets.length === 1 ? 'result' : 'results'} found
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {datasets.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                         <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
@@ -145,6 +215,22 @@ export default function IstoricPage() {
                         <p className="text-sm text-muted-foreground">
                             Importă fișiere Excel pentru a vedea istoricul
                         </p>
+                    </div>
+                ) : filteredDatasets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
+                            <Search className="w-7 h-7 text-muted-foreground/50" />
+                        </div>
+                        <h2 className="text-lg font-semibold mb-2 text-foreground">No results found</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Try adjusting your search query
+                        </p>
+                        <button
+                            onClick={clearSearch}
+                            className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                            Clear search
+                        </button>
                     </div>
                 ) : (
                     <div className="max-w-3xl mx-auto space-y-3">
