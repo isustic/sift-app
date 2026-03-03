@@ -216,6 +216,45 @@ export default function IstoricPage() {
                             )}
                         </div>
 
+                        {/* Search Results - show below search bar when searching */}
+                        {searchQuery && filteredDatasets.length > 0 ? (
+                            <div className="mb-6 space-y-2">
+                                <div className="flex items-center justify-between px-2">
+                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        Search Results
+                                    </h3>
+                                    <button
+                                        onClick={clearSearch}
+                                        className="text-xs text-primary hover:underline"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                                <div className="space-y-1.5">
+                                    {filteredDatasets.map((dataset) => (
+                                        <button
+                                            key={dataset.id}
+                                            onClick={() => openDatasetModal(dataset)}
+                                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-background/60 border border-border/30 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
+                                        >
+                                            <FileSpreadsheet className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                                                    {dataset.name}
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground font-data truncate">
+                                                    {formatDate(dataset.created_at)} · {dataset.file_origin}
+                                                </p>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/40 font-data shrink-0">
+                                                {dataset.row_count.toLocaleString()} rows
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+
                         {filteredDatasets.length === 0 ? (
                             <div className="flex flex-col items-center justify-center text-center">
                                 <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
