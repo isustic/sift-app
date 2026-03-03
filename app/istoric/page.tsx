@@ -256,7 +256,7 @@ export default function IstoricPage() {
                             <FilterChips
                                 options={timeFilterOptions}
                                 value={timeFilter}
-                                onChange={setTimeFilter}
+                                onChange={(value) => setTimeFilter(value as TimeFilter)}
                             />
                         </div>
 
