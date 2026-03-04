@@ -21,29 +21,33 @@ export function useResizableSidebar({
   defaultWidth,
   storageKey,
 }: UseResizableSidebarOptions): UseResizableSidebarReturn {
-  const [sidebarWidth, setSidebarWidth] = useState(defaultWidth);
-  const [isDragging, setIsDragging] = useState(false);
+  // Initialize width from localStorage to avoid flash of incorrect width
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    // SSR safety: only access localStorage on client
+    if (typeof window === 'undefined') return defaultWidth;
 
-  // Load from localStorage on mount
-  useEffect(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed >= minWidth && parsed <= maxWidth) {
-          setSidebarWidth(parsed);
+          return parsed;
         }
       }
     } catch (error) {
       console.warn('Failed to load sidebar width from localStorage:', error);
     }
-  }, [storageKey, minWidth, maxWidth]);
+    return defaultWidth;
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
 
   // Handle mouse move during drag
   useEffect(() => {
     if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
+      // Note: Using e.clientX directly works because sidebar is at left edge of viewport
       const newWidth = e.clientX;
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
       setSidebarWidth(clampedWidth);
@@ -63,6 +67,7 @@ export function useResizableSidebar({
   }, [isDragging, minWidth, maxWidth]);
 
   // Save to localStorage when width changes (and not dragging)
+  // This optimization prevents excessive localStorage writes during drag
   useEffect(() => {
     if (!isDragging) {
       try {
