@@ -229,20 +229,24 @@ function EPPPageContent() {
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-[11px] text-muted-foreground">Year:</label>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="h-7 px-2 text-xs border border-border/50 rounded-md bg-background"
+                  <Select
+                    value={String(selectedYear)}
+                    onValueChange={(v) => setSelectedYear(Number(v))}
                   >
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() - 5 + i;
-                      return (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    <SelectTrigger className="h-7 w-[90px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const year = new Date().getFullYear() - 5 + i;
+                        return (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

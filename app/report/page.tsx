@@ -711,7 +711,7 @@ function ReportPageContent() {
         Step {["columns", "groupBy", "calculate", "filters", "sort", "run", "charts"].indexOf(currentStep) + 1} of 7
       </div>
       <Button onClick={handleNext} disabled={!canGoNext()}>
-        {currentStep === "sort" ? "Run Report" : currentStep === "run" ? "Add Chart" : "Next"}
+        {currentStep === "sort" ? "Run Report" : currentStep === "run" ? "Add chart" : "Next"}
       </Button>
     </div>
   );
@@ -1071,6 +1071,7 @@ function ReportPageContent() {
               chartConfig={chartConfig}
               onChartConfigChange={setChartConfig}
               onBack={() => setCurrentStep("run")}
+              onExport={handleExport}
               chartRef={chartRef}
               isVisible={currentStep === "charts"}
             />

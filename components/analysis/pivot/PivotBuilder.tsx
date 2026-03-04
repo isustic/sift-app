@@ -63,7 +63,7 @@ export function PivotBuilder({ columns, onRun, onSave, isLoading = false }: Pivo
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
             <div className="flex gap-4">
                 {/* Available Columns */}
-                <div className="w-48 space-y-2">
+                <div className="w-56 space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Available</p>
                     <div className="space-y-1">
                         {columns
@@ -90,9 +90,9 @@ export function PivotBuilder({ columns, onRun, onSave, isLoading = false }: Pivo
 
                     <PivotDropZone id="values" label="VALUES" className="col-span-2">
                         {values.map((v) => (
-                            <div key={v.column} className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded text-sm">
-                                <span>{v.agg}({v.column})</span>
-                                <button onClick={() => handleRemove("values", v.column)} className="text-muted-foreground hover:text-destructive">×</button>
+                            <div key={v.column} className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded text-sm" title={`${v.agg}(${v.column})`}>
+                                <span className="truncate">{v.agg}({v.column})</span>
+                                <button onClick={() => handleRemove("values", v.column)} className="text-muted-foreground hover:text-destructive shrink-0">×</button>
                             </div>
                         ))}
                     </PivotDropZone>
@@ -101,7 +101,12 @@ export function PivotBuilder({ columns, onRun, onSave, isLoading = false }: Pivo
 
             {/* Actions */}
             <div className="flex gap-2 mt-4">
-                <Button onClick={handleRun} size="sm" disabled={isLoading}>
+                <Button
+                    onClick={handleRun}
+                    size="sm"
+                    disabled={isLoading || rows.length === 0 || values.length === 0}
+                    title={rows.length === 0 ? "At least one row column is required" : values.length === 0 ? "At least one value column is required" : ""}
+                >
                     {isLoading ? (
                         <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
                     ) : (

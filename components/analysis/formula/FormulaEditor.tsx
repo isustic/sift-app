@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     const [isLoadingFormulas, setIsLoadingFormulas] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const loadFormulas = async () => {
         setIsLoadingFormulas(true);
@@ -117,11 +118,51 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     };
 
     const insertColumn = (col: string) => {
-        setFormula((f) => f + col);
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newFormula = formula.substring(0, start) + col + formula.substring(end);
+            setFormula(newFormula);
+            // Restore focus and set cursor after inserted column
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + col.length, start + col.length);
+            }, 0);
+        } else {
+            setFormula((f) => f + col);
+        }
     };
 
     const insertFunction = (fn: string) => {
-        setFormula((f) => f + fn + "()");
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = formula.substring(start, end);
+
+            let newFormula: string;
+            let cursorPos: number;
+
+            if (selectedText) {
+                // Wrap selected text with the function
+                newFormula = formula.substring(0, start) + `${fn}(${selectedText})` + formula.substring(end);
+                cursorPos = start + fn.length + selectedText.length + 2; // Position after closing parenthesis
+            } else {
+                // Insert function with placeholder at cursor position
+                newFormula = formula.substring(0, start) + `${fn}()` + formula.substring(end);
+                cursorPos = start + fn.length + 1; // Position between parentheses
+            }
+
+            setFormula(newFormula);
+            // Restore focus and set cursor position
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(cursorPos, cursorPos);
+            }, 0);
+        } else {
+            setFormula((f) => f + fn + "()");
+        }
     };
 
     return (
@@ -153,12 +194,16 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             disabled={isLoading}
                         />
                         <textarea
-                            placeholder="Enter formula (e.g., Sales * 0.15 - Expenses)"
+                            ref={textareaRef}
+                            placeholder="Enter formula (e.g., AVG(Sales) - SUM(Expenses))"
                             value={formula}
                             onChange={(e) => setFormula(e.target.value)}
                             disabled={isLoading}
                             className="w-full h-32 px-3 py-2 border border-border/40 rounded-lg text-sm font-mono bg-background resize-none disabled:opacity-50"
                         />
+                        <p className="text-[10px] text-muted-foreground">
+                            💡 Tip: Select text and click a function to wrap it, or click function then insert columns inside parentheses.
+                        </p>
                         <div className="flex gap-2">
                             <Button onClick={handleTest} size="sm" disabled={!formula.trim() || isLoading}>
                                 {isLoading ? (
@@ -198,6 +243,9 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
 
                 {/* Sidebar */}
                 <div className="space-y-4">
+                    {/* Functions */}
+                    <FunctionReference onInsert={insertFunction} />
+
                     {/* Columns */}
                     <div className="bg-card/30 border border-border/40 rounded-xl p-3">
                         <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Columns</h4>
@@ -214,9 +262,6 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             ))}
                         </div>
                     </div>
-
-                    {/* Functions */}
-                    <FunctionReference onInsert={insertFunction} />
 
                     {/* Saved Formulas */}
                     <div className="bg-card/30 border border-border/40 rounded-xl p-3">

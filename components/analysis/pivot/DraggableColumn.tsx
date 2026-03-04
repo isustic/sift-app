@@ -14,20 +14,21 @@ export function DraggableColumn({ id, label, onRemove }: DraggableColumnProps) {
     return (
         <div
             ref={setNodeRef}
-            {...listeners}
-            {...attributes}
-            className={`px-3 py-2 bg-muted/50 rounded text-sm cursor-grab active:cursor-grabbing hover:bg-muted transition-colors flex items-center justify-between ${
+            className={`px-3 py-2 bg-muted/50 rounded text-sm hover:bg-muted transition-colors flex items-center justify-between gap-2 ${
                 isDragging ? "opacity-50" : ""
             }`}
+            title={label}
         >
-            <span>{label}</span>
+            <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-1 min-w-0 truncate">
+                {label}
+            </span>
             {onRemove && (
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onRemove();
                     }}
-                    className="text-muted-foreground hover:text-destructive ml-2"
+                    className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
                 >
                     ×
                 </button>

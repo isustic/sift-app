@@ -301,7 +301,7 @@ export function Step6_Results({
           {onAddChart && (
             <Button onClick={onAddChart} size="sm" variant={chartEnabled ? "default" : "outline"} className="gap-2">
               <BarChart3 className="h-4 w-4" />
-              {chartEnabled ? "Chart Added" : "Add Chart"}
+              {chartEnabled ? "Chart added" : "Add chart"}
             </Button>
           )}
           <Button onClick={onExport} size="sm" className="gap-2">

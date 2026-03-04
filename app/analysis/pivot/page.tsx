@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { LoaderIcon, AlertCircleIcon } from "lucide-react";
+import { LoaderIcon, AlertCircleIcon, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { DatasetSelector } from "@/components/analysis/DatasetSelector";
 import { PivotBuilder, PivotConfig } from "@/components/analysis/pivot/PivotBuilder";
 import { ResultsGrid } from "@/components/analysis/ResultsGrid";
@@ -84,6 +85,11 @@ export default function PivotPage() {
             {/* Header */}
             <div className="h-14 px-6 flex items-center justify-between border-b border-border/50 bg-card/30 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
+                    <Link href="/analysis">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
                     <DatasetSelector value={datasetId} onChange={handleDatasetChange} />
                     {isLoadingColumns && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">

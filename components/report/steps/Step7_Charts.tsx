@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BarChart3, Columns, TrendingUp, PieChart as PieChartIcon, AreaChart as AreaChartIcon } from "lucide-react";
+import { ArrowLeft, BarChart3, Columns, TrendingUp, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReportResult, ChartConfig, Calculation } from "@/types/report";
 import { transformDataForChart, getRecommendedChartType, isChartSupported, getChartTypeDescription } from "@/lib/chart-data";
@@ -35,6 +35,7 @@ interface Step7_ChartsProps {
   chartConfig: ChartConfig | undefined;
   onChartConfigChange: (config: ChartConfig) => void;
   onBack: () => void;
+  onExport?: () => void;
   chartRef?: React.RefObject<HTMLDivElement | null>;
   isVisible?: boolean;
 }
@@ -57,6 +58,7 @@ export function Step7_Charts({
   chartConfig,
   onChartConfigChange,
   onBack,
+  onExport,
   chartRef: externalChartRef,
   isVisible = true,
 }: Step7_ChartsProps) {
@@ -247,7 +249,7 @@ export function Step7_Charts({
             <div className="flex items-center justify-between rounded-lg border bg-card p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="chart-toggle" className="text-base font-medium">
-                  Enable Chart
+                  Enable chart
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Show a visual chart alongside your table data
@@ -341,8 +343,14 @@ export function Step7_Charts({
         <div className="flex items-center justify-between pt-4 border-t">
           <Button variant="outline" onClick={onBack} className="gap-2">
             <ArrowLeft className="w-4 h-4" />
-            Back to Results
+            Back to results
           </Button>
+          {onExport && (
+            <Button onClick={onExport} className="gap-2">
+              <Download className="w-4 h-4" />
+              Export to Excel
+            </Button>
+          )}
         </div>
       </div>
     </>

@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, X } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 // Analytics types
 interface UsageStats {
@@ -490,15 +497,19 @@ export default function SettingsPage() {
                                         <p className="text-sm font-medium">Default Aggregation</p>
                                         <p className="text-[10px] text-muted-foreground">Default aggregation for numeric values in pivots</p>
                                     </div>
-                                    <select
+                                    <Select
                                         value={settings.defaultAggregation || "SUM"}
-                                        onChange={(e) => updateSetting("defaultAggregation", e.target.value)}
-                                        className="px-3 py-1.5 text-sm border border-border/40 rounded bg-background"
+                                        onValueChange={(v) => updateSetting("defaultAggregation", v)}
                                     >
-                                        <option value="SUM">Sum</option>
-                                        <option value="AVG">Average</option>
-                                        <option value="COUNT">Count</option>
-                                    </select>
+                                        <SelectTrigger className="w-[120px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="SUM">Sum</SelectItem>
+                                            <SelectItem value="AVG">Average</SelectItem>
+                                            <SelectItem value="COUNT">Count</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 
@@ -511,13 +522,11 @@ export default function SettingsPage() {
                                     </div>
                                     <button
                                         onClick={() => updateSetting("showPivotTotals", !settings.showPivotTotals)}
-                                        className={`w-11 h-6 rounded-full transition-colors ${
-                                            settings.showPivotTotals ? "bg-primary" : "bg-muted"
-                                        }`}
+                                        className={`w-11 h-6 rounded-full transition-colors ${settings.showPivotTotals ? "bg-primary" : "bg-muted"
+                                            }`}
                                     >
-                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                                            settings.showPivotTotals ? "translate-x-6" : "translate-x-0.5"
-                                        }`} />
+                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.showPivotTotals ? "translate-x-6" : "translate-x-0.5"
+                                            }`} />
                                     </button>
                                 </div>
                             </div>
@@ -529,16 +538,20 @@ export default function SettingsPage() {
                                         <p className="text-sm font-medium">Max Preview Rows</p>
                                         <p className="text-[10px] text-muted-foreground">Maximum rows to display in results</p>
                                     </div>
-                                    <select
-                                        value={settings.maxPreviewRows || "1000"}
-                                        onChange={(e) => updateSetting("maxPreviewRows", parseInt(e.target.value))}
-                                        className="px-3 py-1.5 text-sm border border-border/40 rounded bg-background"
+                                    <Select
+                                        value={String(settings.maxPreviewRows || "1000")}
+                                        onValueChange={(v) => updateSetting("maxPreviewRows", parseInt(v))}
                                     >
-                                        <option value="100">100</option>
-                                        <option value="500">500</option>
-                                        <option value="1000">1,000</option>
-                                        <option value="5000">5,000</option>
-                                    </select>
+                                        <SelectTrigger className="w-[120px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="100">100</SelectItem>
+                                            <SelectItem value="500">500</SelectItem>
+                                            <SelectItem value="1000">1,000</SelectItem>
+                                            <SelectItem value="5000">5,000</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 
@@ -551,13 +564,11 @@ export default function SettingsPage() {
                                     </div>
                                     <button
                                         onClick={() => updateSetting("cacheResults", !settings.cacheResults)}
-                                        className={`w-11 h-6 rounded-full transition-colors ${
-                                            settings.cacheResults ? "bg-primary" : "bg-muted"
-                                        }`}
+                                        className={`w-11 h-6 rounded-full transition-colors ${settings.cacheResults ? "bg-primary" : "bg-muted"
+                                            }`}
                                     >
-                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                                            settings.cacheResults ? "translate-x-6" : "translate-x-0.5"
-                                        }`} />
+                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${settings.cacheResults ? "translate-x-6" : "translate-x-0.5"
+                                            }`} />
                                     </button>
                                 </div>
                             </div>
@@ -605,8 +616,6 @@ export default function SettingsPage() {
                             <span>Sift</span>
                             <span className="w-px h-3 bg-border/50" />
                             <span className="font-data">Version 0.1.0</span>
-                            <span className="w-px h-3 bg-border/50" />
-                            <span>Built with Tauri + Next.js</span>
                         </div>
                     </section>
                 </div>

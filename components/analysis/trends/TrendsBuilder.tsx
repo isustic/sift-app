@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Play, LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { SparklineChart } from "./SparklineChart";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface TrendsBuilderProps {
     datasetId: number;
@@ -69,62 +76,60 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
             <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-1">
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Date Column</label>
-                    <select
-                        value={dateColumn}
-                        onChange={(e) => setDateColumn(e.target.value)}
-                        disabled={isLoading}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
-                    >
-                        <option value="">Select...</option>
-                        {dateColumns.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
+                    <Select value={dateColumn} onValueChange={setDateColumn} disabled={isLoading}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {dateColumns.map((c) => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-1">
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Value Column</label>
-                    <select
-                        value={valueColumn}
-                        onChange={(e) => setValueColumn(e.target.value)}
-                        disabled={isLoading}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
-                    >
-                        <option value="">Select...</option>
-                        {numericColumns.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
+                    <Select value={valueColumn} onValueChange={setValueColumn} disabled={isLoading}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {numericColumns.map((c) => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-1">
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Period</label>
-                    <select
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "quarterly" | "yearly")}
-                        disabled={isLoading}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
-                    >
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
+                    <Select value={period} onValueChange={(v) => setPeriod(v as "daily" | "weekly" | "monthly" | "quarterly" | "yearly")} disabled={isLoading}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="quarterly">Quarterly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-1">
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Aggregation</label>
-                    <select
-                        value={aggregation}
-                        onChange={(e) => setAggregation(e.target.value as "sum" | "avg" | "count")}
-                        disabled={isLoading}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
-                    >
-                        <option value="sum">Sum</option>
-                        <option value="avg">Average</option>
-                        <option value="count">Count</option>
-                    </select>
+                    <Select value={aggregation} onValueChange={(v) => setAggregation(v as "sum" | "avg" | "count")} disabled={isLoading}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="sum">Sum</SelectItem>
+                            <SelectItem value="avg">Average</SelectItem>
+                            <SelectItem value="count">Count</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <Button onClick={handleRun} size="sm" disabled={!dateColumn || !valueColumn || isLoading}>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { LoaderIcon, AlertCircleIcon } from "lucide-react";
+import { LoaderIcon, AlertCircleIcon, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { BlendBuilder } from "@/components/analysis/blend/BlendBuilder";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,11 @@ export default function BlendPage() {
         <div className="flex flex-col h-full bg-background/50 mesh-bg">
             <div className="h-14 px-6 flex items-center justify-between border-b border-border/50 bg-card/30 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
+                    <Link href="/analysis">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
                     <h1 className="text-sm font-semibold">Blend Datasets</h1>
                     {isLoading && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">

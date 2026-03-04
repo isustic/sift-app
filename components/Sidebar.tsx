@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/upload", label: "Raw data", icon: Database },
-    { href: "/report", label: "Report builder", icon: BarChart3 },
     { href: "/analysis", label: "Analysis", icon: GitCompare },
+    { href: "/report", label: "Report builder", icon: BarChart3 },
     { href: "/epp", label: "EPP", icon: FileSpreadsheet },
     { href: "/subgroups", label: "Subgroups", icon: List },
     { href: "/istoric", label: "History", icon: History },
