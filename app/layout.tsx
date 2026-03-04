@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import "./lib/theme-init";
+import "@/lib/theme-init";
 import { Sidebar } from "@/components/Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
