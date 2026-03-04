@@ -75,6 +75,7 @@ pub fn run() {
             commands::subgroups::update_subgroup,
             commands::subgroups::delete_subgroup,
             commands::subgroups::import_subgroups_from_excel,
+            commands::pivot::run_pivot_query,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
