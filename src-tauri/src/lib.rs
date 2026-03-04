@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 
+use commands::subgroups::seed_subgroups;
 use db::{init_db, DbState};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -17,7 +18,26 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().expect("Missing app data dir");
             let conn = init_db(&app_data_dir).expect("Failed to init database");
+
+            // Manage state first (must be done before accessing state)
             app.manage(DbState(Mutex::new(conn)));
+
+            // Seed subgroups on first startup if table is empty
+            let db_state = app.state::<DbState>();
+            let conn = db_state.0.lock().unwrap();
+            let count: i64 = conn
+                .query_row("SELECT COUNT(*) FROM subgroups", [], |r| r.get(0))
+                .unwrap_or(0);
+            drop(conn); // Release lock before calling seed_subgroups
+
+            if count == 0 {
+                log::info!("Seeding subgroups table...");
+                match seed_subgroups(db_state) {
+                    Ok(n) => log::info!("Seeded {} subgroups", n),
+                    Err(e) => log::error!("Failed to seed subgroups: {}", e),
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -45,6 +65,16 @@ pub fn run() {
             commands::epp::get_unique_agents,
             commands::epp::get_agents_for_dataset,
             commands::epp::generate_epp_report,
+            commands::subgroups::insert_subgroups,
+            commands::subgroups::get_subgroups,
+            commands::subgroups::search_subgroups,
+            commands::subgroups::get_subgroups_by_grupa,
+            commands::subgroups::get_grupe,
+            commands::subgroups::seed_subgroups,
+            commands::subgroups::create_subgroup,
+            commands::subgroups::update_subgroup,
+            commands::subgroups::delete_subgroup,
+            commands::subgroups::import_subgroups_from_excel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
