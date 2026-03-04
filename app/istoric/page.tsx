@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useRouter } from "next/navigation";
 import { History, ChevronDown, ChevronRight, FileSpreadsheet, Calendar, Search, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { HistoricDataModal } from "@/components/Upload/HistoricDataModal";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -22,11 +22,10 @@ interface Dataset {
 }
 
 export default function IstoricPage() {
+    const router = useRouter();
     const [datasets, setDatasets] = useState<Dataset[]>([]);
     const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
     const [expandedMonths, setExpandedMonths] = useState<Map<number, Set<number>>>(new Map());
-    const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
-    const [modalOpen, setModalOpen] = useState(false);
 
     // Search state
     const [searchQuery, setSearchQuery] = useState("");
@@ -139,9 +138,8 @@ export default function IstoricPage() {
         });
     };
 
-    const openDatasetModal = (dataset: Dataset) => {
-        setSelectedDataset(dataset);
-        setModalOpen(true);
+    const openDataset = (dataset: Dataset) => {
+        router.push(`/upload?dataset=${dataset.id}`);
     };
 
     const formatDate = (dateString: string): string => {
@@ -234,7 +232,7 @@ export default function IstoricPage() {
                                     {filteredDatasets.map((dataset) => (
                                         <button
                                             key={dataset.id}
-                                            onClick={() => openDatasetModal(dataset)}
+                                            onClick={() => openDataset(dataset)}
                                             className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-background/60 border border-border/30 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
                                         >
                                             <FileSpreadsheet className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
@@ -329,7 +327,7 @@ export default function IstoricPage() {
                                                         {monthDatasets.map((dataset) => (
                                                             <button
                                                                 key={dataset.id}
-                                                                onClick={() => openDatasetModal(dataset)}
+                                                                onClick={() => openDataset(dataset)}
                                                                 className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-background/60 border border-border/30 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
                                                             >
                                                                 <FileSpreadsheet className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
@@ -359,19 +357,6 @@ export default function IstoricPage() {
                     </div>
                 )}
             </div>
-
-            {/* Modal */}
-            {selectedDataset && (
-                <HistoricDataModal
-                    open={modalOpen}
-                    onOpenChange={setModalOpen}
-                    datasetId={selectedDataset.id}
-                    datasetName={selectedDataset.name}
-                    fileOrigin={selectedDataset.file_origin}
-                    rowCount={selectedDataset.row_count}
-                    createdAt={selectedDataset.created_at}
-                />
-            )}
         </div>
     );
 }
