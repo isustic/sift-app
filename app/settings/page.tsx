@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
     Sun, Moon,
     Database, BarChart3, TrendingUp, Clock, Star,
-    Trash2, Package, AlertTriangle, FileSpreadsheet
+    Trash2, Package, AlertTriangle, FileSpreadsheet,
+    GitCompare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
@@ -65,6 +66,20 @@ export default function SettingsPage() {
     const [isDeleting, setIsDeleting] = useState<number | null>(null);
     const [editingDatasetId, setEditingDatasetId] = useState<number | null>(null);
     const [editValue, setEditValue] = useState<string>("");
+
+    // Analysis settings
+    const [settings, setSettings] = useState({
+        defaultAggregation: "SUM",
+        showPivotTotals: true,
+        maxPreviewRows: 1000,
+        cacheResults: true,
+    });
+
+    const updateSetting = (key: string, value: any) => {
+        setSettings((prev: any) => ({ ...prev, [key]: value }));
+        // Persist to localStorage
+        localStorage.setItem(`analysis-setting-${key}`, String(value));
+    };
 
     useEffect(() => {
         loadAnalytics();
@@ -458,6 +473,95 @@ export default function SettingsPage() {
                                 <p className="text-xs text-muted-foreground/60">Star datasets or reports to quick access them</p>
                             </div>
                         )}
+                    </section>
+
+                    {/* ── Analysis Settings ── */}
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <GitCompare className="w-4 h-4 text-accent" />
+                            <h2 className="text-sm font-medium">Analysis</h2>
+                        </div>
+
+                        <div className="bg-card/30 border border-border/40 rounded-xl divide-y divide-border/40">
+                            {/* Default Aggregation */}
+                            <div className="px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium">Default Aggregation</p>
+                                        <p className="text-[10px] text-muted-foreground">Default aggregation for numeric values in pivots</p>
+                                    </div>
+                                    <select
+                                        value={settings.defaultAggregation || "SUM"}
+                                        onChange={(e) => updateSetting("defaultAggregation", e.target.value)}
+                                        className="px-3 py-1.5 text-sm border border-border/40 rounded bg-background"
+                                    >
+                                        <option value="SUM">Sum</option>
+                                        <option value="AVG">Average</option>
+                                        <option value="COUNT">Count</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Pivot Totals */}
+                            <div className="px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium">Show Grand Totals</p>
+                                        <p className="text-[10px] text-muted-foreground">Display row and column totals in pivots</p>
+                                    </div>
+                                    <button
+                                        onClick={() => updateSetting("showPivotTotals", !settings.showPivotTotals)}
+                                        className={`w-11 h-6 rounded-full transition-colors ${
+                                            settings.showPivotTotals ? "bg-primary" : "bg-muted"
+                                        }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                                            settings.showPivotTotals ? "translate-x-6" : "translate-x-0.5"
+                                        }`} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Max Rows */}
+                            <div className="px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium">Max Preview Rows</p>
+                                        <p className="text-[10px] text-muted-foreground">Maximum rows to display in results</p>
+                                    </div>
+                                    <select
+                                        value={settings.maxPreviewRows || "1000"}
+                                        onChange={(e) => updateSetting("maxPreviewRows", parseInt(e.target.value))}
+                                        className="px-3 py-1.5 text-sm border border-border/40 rounded bg-background"
+                                    >
+                                        <option value="100">100</option>
+                                        <option value="500">500</option>
+                                        <option value="1000">1,000</option>
+                                        <option value="5000">5,000</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Cache Results */}
+                            <div className="px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium">Cache Results</p>
+                                        <p className="text-[10px] text-muted-foreground">Store query results for faster re-runs</p>
+                                    </div>
+                                    <button
+                                        onClick={() => updateSetting("cacheResults", !settings.cacheResults)}
+                                        className={`w-11 h-6 rounded-full transition-colors ${
+                                            settings.cacheResults ? "bg-primary" : "bg-muted"
+                                        }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                                            settings.cacheResults ? "translate-x-6" : "translate-x-0.5"
+                                        }`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     {/* ── Appearance ── */}
