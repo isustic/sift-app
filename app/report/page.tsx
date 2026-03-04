@@ -50,6 +50,10 @@ import { Step7_Charts } from "@/components/report/steps/Step7_Charts";
 import { QueryPreview } from "@/components/report/QueryPreview";
 import { buildQueryPreview } from "@/lib/query-preview";
 
+// Resizable sidebar
+import { useResizableSidebar } from "./hooks/useResizableSidebar";
+import { ResizeHandle } from "@/components/report/ResizeHandle";
+
 function ReportPageContent() {
   const searchParams = useSearchParams();
 
@@ -113,6 +117,14 @@ function ReportPageContent() {
 
   // Ref for chart element (for export)
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // Resizable sidebar
+  const { sidebarWidth, isDragging, dragHandleProps } = useResizableSidebar({
+    minWidth: 250,
+    maxWidth: 500,
+    defaultWidth: 320,
+    storageKey: 'report-sidebar-width',
+  });
 
   // ============================================================
   // DATA LOADING
@@ -696,7 +708,10 @@ function ReportPageContent() {
   return (
     <div className="flex h-full bg-background/50">
       {/* LEFT SIDEBAR */}
-      <aside className="w-80 shrink-0 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
+      <aside
+        className="group shrink-0 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden"
+        style={{ width: `${sidebarWidth}px` }}
+      >
         {/* Header */}
         <div className="h-14 px-4 flex items-end border-b border-border/50">
           <div>
@@ -911,6 +926,9 @@ function ReportPageContent() {
             {isLoading ? "Running…" : selectedTemplateId ? "Run selected report" : "Select a report"}
           </Button>
         </div>
+
+        {/* Resize Handle */}
+        <ResizeHandle {...dragHandleProps} isDragging={isDragging} />
       </aside>
 
       {/* MAIN CONTENT */}
