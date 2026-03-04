@@ -11,8 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, X } from "lucide-react";
-
-type Theme = "dark" | "light";
+import { useTheme } from "@/components/ThemeProvider";
 
 // Analytics types
 interface UsageStats {
@@ -56,26 +55,8 @@ interface Dataset {
     created_at: string;
 }
 
-function useTheme(): [Theme, (t: Theme) => void] {
-    const [theme, setThemeState] = useState<Theme>("dark");
-
-    useEffect(() => {
-        const stored = (localStorage.getItem("theme") as Theme) || "dark";
-        setThemeState(stored);
-        document.documentElement.classList.toggle("dark", stored === "dark");
-    }, []);
-
-    const setTheme = (t: Theme) => {
-        setThemeState(t);
-        localStorage.setItem("theme", t);
-        document.documentElement.classList.toggle("dark", t === "dark");
-    };
-
-    return [theme, setTheme];
-}
-
 export default function SettingsPage() {
-    const [theme, setTheme] = useTheme();
+    const { theme, setTheme } = useTheme();
     const [stats, setStats] = useState<UsageStats | null>(null);
     const [activity, setActivity] = useState<ActivityDay[]>([]);
     const [queryHistory, setQueryHistory] = useState<QueryEntry[]>([]);
