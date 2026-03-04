@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod blend;
 pub mod data;
 pub mod epp;
 pub mod export;
@@ -11,6 +12,7 @@ pub mod subgroups;
 pub mod templates;
 pub mod trends;
 
+pub use blend::{run_blend_query, BlendConfig, BlendResult, BlendRow, MatchPair};
 pub use formula::{save_formula, list_formulas, delete_formula, test_formula, CalculatedField};
 pub use pivot::{run_pivot_query, PivotConfig, PivotResult, PivotValue, PivotRow, PivotFilter};
 pub use trends::{run_trends_query, TrendsConfig, TrendsResult, TrendMetrics};

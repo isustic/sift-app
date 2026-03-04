@@ -81,6 +81,7 @@ pub fn run() {
             commands::formula::list_formulas,
             commands::formula::delete_formula,
             commands::formula::test_formula,
+            commands::blend::run_blend_query,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
