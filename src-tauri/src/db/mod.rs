@@ -11,7 +11,7 @@ pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection> {
     let db_path = app_data_dir.join("app.db");
     let conn = Connection::open(db_path)?;
 
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;")?;
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;")?;
 
     // Migration: Add display_name column if it doesn't exist
     let _ = conn.execute("ALTER TABLE columns ADD COLUMN display_name TEXT", []);
