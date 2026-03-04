@@ -37,6 +37,8 @@ pub struct EppRow {
     pub haircare_tehnic_q2: f64,
     pub haircare_tehnic_q3: f64,
     pub haircare_tehnic_q4: f64,
+    pub suma_bonus: f64,
+    pub suma_bonus_reducere: f64,  // Suma bonus - 7.5%
 }
 
 /// Complete EPP report result
@@ -632,6 +634,13 @@ pub fn generate_epp_report(
 
             let (program, procent) = calculate_program(total);
 
+            // Calculate suma_bonus (sum of all C+D and HT quarterly values)
+            let suma_bonus = data.culoare_decolorare_q1 + data.culoare_decolorare_q2
+                + data.culoare_decolorare_q3 + data.culoare_decolorare_q4
+                + data.haircare_tehnic_q1 + data.haircare_tehnic_q2
+                + data.haircare_tehnic_q3 + data.haircare_tehnic_q4;
+            let suma_bonus_reducere = suma_bonus * 0.925; // 7.5% reduction
+
             EppRow {
                 client: data.client,
                 agent: data.agent,
@@ -652,6 +661,8 @@ pub fn generate_epp_report(
                 haircare_tehnic_q2: data.haircare_tehnic_q2,
                 haircare_tehnic_q3: data.haircare_tehnic_q3,
                 haircare_tehnic_q4: data.haircare_tehnic_q4,
+                suma_bonus,
+                suma_bonus_reducere,
             }
         })
         .collect();

@@ -37,6 +37,8 @@ export interface EppRow {
   haircare_tehnic_q2: number;
   haircare_tehnic_q3: number;
   haircare_tehnic_q4: number;
+  suma_bonus: number;
+  suma_bonus_reducere: number;
 }
 
 interface EppReportTableProps {
@@ -105,6 +107,8 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "HT Q2": row.haircare_tehnic_q2,
         "HT Q3": row.haircare_tehnic_q3,
         "HT Q4": row.haircare_tehnic_q4,
+        "Suma bonus": row.suma_bonus,
+        "Suma bonus - 7.5%": row.suma_bonus_reducere,
       }));
 
       const columns = [
@@ -127,6 +131,8 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "HT Q2",
         "HT Q3",
         "HT Q4",
+        "Suma bonus",
+        "Suma bonus - 7.5%",
       ];
 
       await invoke("export_report", {
@@ -305,6 +311,22 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
       },
+      {
+        id: "suma_bonus",
+        accessorKey: "suma_bonus",
+        header: "Suma bonus",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs font-bold text-right text-amber-600">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "suma_bonus_reducere",
+        accessorKey: "suma_bonus_reducere",
+        header: "Suma bonus - 7.5%",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs font-bold text-right text-amber-700">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
     ],
     []
   );
@@ -351,6 +373,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         return "bg-emerald-500/5";
       case "haircare_tehnic_q4":
         return "bg-lime-500/5";
+      case "suma_bonus":
+        return "bg-amber-500/10";
+      case "suma_bonus_reducere":
+        return "bg-amber-500/15";
       default:
         return "";
     }
