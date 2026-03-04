@@ -719,7 +719,7 @@ function ReportPageContent() {
               <Sparkles className="w-4 h-4 text-primary" />
               Report builder
             </h1>
-            <p className="text-[10px] text-muted-foreground">Build queries step by step</p>
+            <p className="text-[10px] text-muted-foreground truncate">Build queries step by step</p>
           </div>
         </div>
 
@@ -765,7 +765,7 @@ function ReportPageContent() {
               </div>
 
               {showSaveInput && (
-                <div className="flex gap-1.5 items-center p-2 rounded-md bg-primary/5 border border-primary/20">
+                <div className="flex gap-1.5 items-center p-2 rounded-md bg-primary/5 border border-primary/20 flex-wrap">
                   <Input
                     ref={templateNameRef}
                     className="flex-1 h-7 text-xs bg-background/60 border-border/50"
@@ -828,7 +828,7 @@ function ReportPageContent() {
                             )}
                           >
                             <button
-                              className="flex-1 text-left text-xs truncate flex items-center gap-1.5"
+                              className="flex-1 text-left text-xs truncate flex items-center gap-1.5 min-w-0"
                               onClick={() => handleSelectTemplate(t.id)}
                               title="Click to select, use Run Report button below to execute"
                             >
@@ -923,7 +923,9 @@ function ReportPageContent() {
             ) : (
               <Settings2 size={13} />
             )}
-            {isLoading ? "Running…" : selectedTemplateId ? "Run selected report" : "Select a report"}
+            <span className="truncate">
+              {isLoading ? "Running…" : selectedTemplateId ? "Run report" : "Select a report"}
+            </span>
           </Button>
         </div>
 
