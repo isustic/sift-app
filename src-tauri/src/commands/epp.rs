@@ -235,8 +235,10 @@ pub fn generate_epp_report(
         let has_client = column_names.iter().any(|c| c == "Client");
         let has_date = column_names.iter().any(|c| c == "Data");
         let has_value = column_names.iter().any(|c| c == "Valoare_Contabila");
+        let has_cod = column_names.iter().any(|c| c == "Cod");
 
-        eprintln!("DEBUG: has_agent={}, has_client={}, has_date={}, has_value={}", has_agent, has_client, has_date, has_value);
+        eprintln!("DEBUG: has_agent={}, has_client={}, has_date={}, has_value={}, has_cod={}",
+            has_agent, has_client, has_date, has_value, has_cod);
 
         if !has_agent || !has_client || !has_date || !has_value {
             eprintln!("DEBUG: Skipping table '{}' - missing required columns", table_name);
@@ -244,12 +246,22 @@ pub fn generate_epp_report(
         }
 
         // Query data for this agent and year
-        let query = format!(
-            "SELECT \"Client\", \"Data\", \"Valoare_Contabila\" \
-             FROM \"{}\" \
-             WHERE \"Agent\" = ?1",
-            table_name
-        );
+        // Include Cod column if it exists, otherwise use NULL
+        let query = if has_cod {
+            format!(
+                "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", \"Cod\" \
+                 FROM \"{}\" \
+                 WHERE \"Agent\" = ?1",
+                table_name
+            )
+        } else {
+            format!(
+                "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", NULL as \"Cod\" \
+                 FROM \"{}\" \
+                 WHERE \"Agent\" = ?1",
+                table_name
+            )
+        };
 
         let mut data_stmt = conn.prepare(&query)
             .map_err(|e| format!("Failed to prepare data query: {e}"))?;
@@ -270,9 +282,10 @@ pub fn generate_epp_report(
                 let client_ref = row.get_ref(0).unwrap(); // First column: Client
                 let date_ref = row.get_ref(1).unwrap();   // Second column: Data
                 let value_ref = row.get_ref(2).unwrap();  // Third column: Valoare_Contabila
+                let cod_ref = row.get_ref(3).unwrap();    // Fourth column: Cod
 
-                eprintln!("DEBUG: Ref - client={:?}, date={:?}, value={:?}",
-                    client_ref, date_ref, value_ref);
+                eprintln!("DEBUG: Ref - client={:?}, date={:?}, value={:?}, cod={:?}",
+                    client_ref, date_ref, value_ref, cod_ref);
 
                 let client = match client_ref {
                     rusqlite::types::ValueRef::Text(s) => {
@@ -302,17 +315,25 @@ pub fn generate_epp_report(
                     _ => 0.0,
                 };
 
-                Ok((client, date_str, value))
+                let cod = match cod_ref {
+                    rusqlite::types::ValueRef::Text(s) => {
+                        std::str::from_utf8(s).unwrap_or("").to_string()
+                    }
+                    _ => String::new()
+                };
+
+                Ok((client, date_str, value, cod))
             })
             .map_err(|e| format!("Failed to query data: {e}"))?;
 
         let mut row_count = 0;
         for row in rows {
             row_count += 1;
-            if let Ok((client, date_str, value)) = row {
+            if let Ok((client, date_str, value, cod)) = row {
                 // Show first 3 rows as samples
                 if row_count <= 3 {
-                    eprintln!("DEBUG: Sample row {} - client='{}', date='{}', value={}", row_count, client, date_str, value);
+                    eprintln!("DEBUG: Sample row {} - client='{}', date='{}', value={}, cod='{}'",
+                        row_count, client, date_str, value, cod);
                 }
 
                 if client.is_empty() {
@@ -327,6 +348,10 @@ pub fn generate_epp_report(
                     q2: 0.0,
                     q3: 0.0,
                     q4: 0.0,
+                    culoare_decolorare_q1: 0.0,
+                    culoare_decolorare_q2: 0.0,
+                    culoare_decolorare_q3: 0.0,
+                    culoare_decolorare_q4: 0.0,
                 });
 
                 // Only add value if it's non-zero and date matches
@@ -340,6 +365,27 @@ pub fn generate_epp_report(
                             3 => entry.q3 += value,
                             4 => entry.q4 += value,
                             _ => {}
+                        }
+
+                        // Culoare+Decolorare calculation
+                        if !cod.is_empty() {
+                            if let Ok(subgrupa) = conn.query_row(
+                                "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                params![cod],
+                                |row| row.get::<_, String>(0)
+                            ) {
+                                let subgrupa_lower = subgrupa.to_lowercase();
+                                if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                    match q {
+                                        1 => entry.culoare_decolorare_q1 += value,
+                                        2 => entry.culoare_decolorare_q2 += value,
+                                        3 => entry.culoare_decolorare_q3 += value,
+                                        4 => entry.culoare_decolorare_q4 += value,
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            // If query returns error (no match), just skip - treated as 0
                         }
                     } else {
                         // Debug: log why date parsing failed
@@ -367,19 +413,30 @@ pub fn generate_epp_report(
             let has_agent = column_names.iter().any(|c| c == "Agent");
             let has_client = column_names.iter().any(|c| c == "Client");
             let has_date = column_names.iter().any(|c| c == "Data");
-            let has_value = column_names.iter().any(|c| c == "Valoare Contabila");
+            let has_value = column_names.iter().any(|c| c == "Valoare_Contabila");
+            let has_cod = column_names.iter().any(|c| c == "Cod");
 
             if !has_agent || !has_client || !has_date || !has_value {
                 continue;
             }
 
             // Query without year filter - just get all data for this agent
-            let query = format!(
-                "SELECT \"Client\", \"Data\", \"Valoare_Contabila\" \
-                 FROM \"{}\" \
-                 WHERE \"Agent\" = ?1",
-                table_name
-            );
+            // Include Cod column if it exists, otherwise use NULL
+            let query = if has_cod {
+                format!(
+                    "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", \"Cod\" \
+                     FROM \"{}\" \
+                     WHERE \"Agent\" = ?1",
+                    table_name
+                )
+            } else {
+                format!(
+                    "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", NULL as \"Cod\" \
+                     FROM \"{}\" \
+                     WHERE \"Agent\" = ?1",
+                    table_name
+                )
+            };
 
             let mut data_stmt = conn.prepare(&query)
                 .map_err(|e| format!("Failed to prepare data query: {e}"))?;
@@ -390,6 +447,7 @@ pub fn generate_epp_report(
                     let client_ref = row.get_ref(0).unwrap();
                     let date_ref = row.get_ref(1).unwrap();
                     let value_ref = row.get_ref(2).unwrap();
+                    let cod_ref = row.get_ref(3).unwrap();
 
                     let client = match client_ref {
                         rusqlite::types::ValueRef::Text(s) => {
@@ -420,12 +478,19 @@ pub fn generate_epp_report(
                         _ => 0.0,
                     };
 
-                    Ok((client, date_str, value))
+                    let cod = match cod_ref {
+                        rusqlite::types::ValueRef::Text(s) => {
+                            std::str::from_utf8(s).unwrap_or("").to_string()
+                        }
+                        _ => String::new()
+                    };
+
+                    Ok((client, date_str, value, cod))
                 })
                 .map_err(|e| format!("Failed to query data: {e}"))?;
 
             for row in rows {
-                if let Ok((client, date_str, value)) = row {
+                if let Ok((client, date_str, value, cod)) = row {
                     if client.is_empty() {
                         continue;
                     }
@@ -438,6 +503,10 @@ pub fn generate_epp_report(
                         q2: 0.0,
                         q3: 0.0,
                         q4: 0.0,
+                        culoare_decolorare_q1: 0.0,
+                        culoare_decolorare_q2: 0.0,
+                        culoare_decolorare_q3: 0.0,
+                        culoare_decolorare_q4: 0.0,
                     });
 
                     // Only add value if it's non-zero and date parses
@@ -447,10 +516,70 @@ pub fn generate_epp_report(
                         if let Some(d) = date {
                             let month = d.month() as u32;
                             match month {
-                                1..=3 => entry.q1 += value,
-                                4..=6 => entry.q2 += value,
-                                7..=9 => entry.q3 += value,
-                                10..=12 => entry.q4 += value,
+                                1..=3 => {
+                                    entry.q1 += value;
+                                    // Culoare+Decolorare calculation
+                                    if !cod.is_empty() {
+                                        if let Ok(subgrupa) = conn.query_row(
+                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                            params![cod],
+                                            |row| row.get::<_, String>(0)
+                                        ) {
+                                            let subgrupa_lower = subgrupa.to_lowercase();
+                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                                entry.culoare_decolorare_q1 += value;
+                                            }
+                                        }
+                                    }
+                                }
+                                4..=6 => {
+                                    entry.q2 += value;
+                                    // Culoare+Decolorare calculation
+                                    if !cod.is_empty() {
+                                        if let Ok(subgrupa) = conn.query_row(
+                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                            params![cod],
+                                            |row| row.get::<_, String>(0)
+                                        ) {
+                                            let subgrupa_lower = subgrupa.to_lowercase();
+                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                                entry.culoare_decolorare_q2 += value;
+                                            }
+                                        }
+                                    }
+                                }
+                                7..=9 => {
+                                    entry.q3 += value;
+                                    // Culoare+Decolorare calculation
+                                    if !cod.is_empty() {
+                                        if let Ok(subgrupa) = conn.query_row(
+                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                            params![cod],
+                                            |row| row.get::<_, String>(0)
+                                        ) {
+                                            let subgrupa_lower = subgrupa.to_lowercase();
+                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                                entry.culoare_decolorare_q3 += value;
+                                            }
+                                        }
+                                    }
+                                }
+                                10..=12 => {
+                                    entry.q4 += value;
+                                    // Culoare+Decolorare calculation
+                                    if !cod.is_empty() {
+                                        if let Ok(subgrupa) = conn.query_row(
+                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                            params![cod],
+                                            |row| row.get::<_, String>(0)
+                                        ) {
+                                            let subgrupa_lower = subgrupa.to_lowercase();
+                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                                entry.culoare_decolorare_q4 += value;
+                                            }
+                                        }
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -482,6 +611,10 @@ pub fn generate_epp_report(
                 total,
                 program,
                 procent,
+                culoare_decolorare_q1: data.culoare_decolorare_q1,
+                culoare_decolorare_q2: data.culoare_decolorare_q2,
+                culoare_decolorare_q3: data.culoare_decolorare_q3,
+                culoare_decolorare_q4: data.culoare_decolorare_q4,
             }
         })
         .collect();
@@ -504,6 +637,10 @@ struct ClientData {
     q2: f64,
     q3: f64,
     q4: f64,
+    culoare_decolorare_q1: f64,
+    culoare_decolorare_q2: f64,
+    culoare_decolorare_q3: f64,
+    culoare_decolorare_q4: f64,
 }
 
 /// Normalize date string by padding single-digit days/months with leading zeros
