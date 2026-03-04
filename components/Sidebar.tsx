@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft, FileSpreadsheet, Home, List } from "lucide-react";
+import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft, FileSpreadsheet, Home, List, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/upload", label: "Raw data", icon: Database },
     { href: "/report", label: "Report builder", icon: BarChart3 },
+    { href: "/analysis", label: "Analysis", icon: GitCompare },
     { href: "/epp", label: "EPP", icon: FileSpreadsheet },
     { href: "/subgroups", label: "Subgroups", icon: List },
     { href: "/istoric", label: "History", icon: History },
