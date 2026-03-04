@@ -208,7 +208,6 @@ pub fn generate_epp_report(
     eprintln!("DEBUG: table_names={:?}", table_names);
 
     let mut client_data: std::collections::HashMap<String, ClientData> = std::collections::HashMap::new();
-    let mut total_rows_found = 0;
 
     // Query each table for data matching the agent
     for table_name in &table_names {
