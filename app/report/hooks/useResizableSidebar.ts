@@ -12,6 +12,7 @@ interface UseResizableSidebarReturn {
   isDragging: boolean;
   dragHandleProps: {
     onMouseDown: (e: React.MouseEvent) => void;
+    onTouchStart: (e: React.TouchEvent) => void;
   };
 }
 
@@ -53,16 +54,31 @@ export function useResizableSidebar({
       setSidebarWidth(clampedWidth);
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const newWidth = touch.clientX;
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      setSidebarWidth(clampedWidth);
+    };
+
     const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    const handleTouchEnd = () => {
       setIsDragging(false);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [isDragging, minWidth, maxWidth]);
 
@@ -83,11 +99,17 @@ export function useResizableSidebar({
     setIsDragging(true);
   }, []);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
   return {
     sidebarWidth,
     isDragging,
     dragHandleProps: {
       onMouseDown: handleMouseDown,
+      onTouchStart: handleTouchStart,
     },
   };
 }
