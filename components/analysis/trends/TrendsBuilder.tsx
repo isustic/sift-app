@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { Play, LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { SparklineChart } from "./SparklineChart";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TrendsBuilderProps {
     datasetId: number;
@@ -29,11 +30,18 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
     const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "quarterly" | "yearly">("monthly");
     const [aggregation, setAggregation] = useState<"sum" | "avg" | "count">("sum");
     const [result, setResult] = useState<TrendsResult | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const dateColumns = columns.filter((c) => c.toLowerCase().includes("date") || c.toLowerCase().includes("time"));
     const numericColumns = columns.filter((c) => !dateColumns.includes(c));
 
     const handleRun = async () => {
+        if (!dateColumn || !valueColumn) return;
+
+        setIsLoading(true);
+        setError(null);
+
         try {
             const res = await invoke<TrendsResult>("run_trends_query", {
                 datasetId,
@@ -45,8 +53,13 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                 },
             });
             setResult(res);
-        } catch (error) {
-            console.error("Trends query failed:", error);
+        } catch (err) {
+            console.error("Trends query failed:", err);
+            const errorMessage = err instanceof Error ? err.message : "Unknown error";
+            setError(`Failed to run trends query: ${errorMessage}. Please check your configuration and try again.`);
+            setResult(null);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -59,7 +72,8 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     <select
                         value={dateColumn}
                         onChange={(e) => setDateColumn(e.target.value)}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background"
+                        disabled={isLoading}
+                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
                     >
                         <option value="">Select...</option>
                         {dateColumns.map((c) => (
@@ -73,7 +87,8 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     <select
                         value={valueColumn}
                         onChange={(e) => setValueColumn(e.target.value)}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background"
+                        disabled={isLoading}
+                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
                     >
                         <option value="">Select...</option>
                         {numericColumns.map((c) => (
@@ -86,8 +101,9 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Period</label>
                     <select
                         value={period}
-                        onChange={(e) => setPeriod(e.target.value as any)}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background"
+                        onChange={(e) => setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "quarterly" | "yearly")}
+                        disabled={isLoading}
+                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
                     >
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
@@ -101,8 +117,9 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Aggregation</label>
                     <select
                         value={aggregation}
-                        onChange={(e) => setAggregation(e.target.value as any)}
-                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background"
+                        onChange={(e) => setAggregation(e.target.value as "sum" | "avg" | "count")}
+                        disabled={isLoading}
+                        className="px-3 py-2 border border-border/40 rounded-lg text-sm bg-background disabled:opacity-50"
                     >
                         <option value="sum">Sum</option>
                         <option value="avg">Average</option>
@@ -110,14 +127,36 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     </select>
                 </div>
 
-                <Button onClick={handleRun} size="sm" disabled={!dateColumn || !valueColumn}>
-                    <Play className="w-4 h-4 mr-1" />
-                    Run
+                <Button onClick={handleRun} size="sm" disabled={!dateColumn || !valueColumn || isLoading}>
+                    {isLoading ? (
+                        <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                        <Play className="w-4 h-4 mr-1" />
+                    )}
+                    {isLoading ? "Running..." : "Run"}
                 </Button>
             </div>
 
+            {/* Error Display */}
+            {error && (
+                <Alert variant="destructive">
+                    <AlertCircleIcon className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+                <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                        <LoaderIcon className="h-8 w-8 text-primary animate-spin" />
+                        <p className="text-sm text-muted-foreground">Running trends analysis...</p>
+                    </div>
+                </div>
+            )}
+
             {/* Results */}
-            {result && (
+            {!isLoading && result && (
                 <div className="space-y-4">
                     {/* Chart */}
                     <div className="bg-card/30 border border-border/40 rounded-xl p-4">

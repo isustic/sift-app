@@ -3,22 +3,27 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Database, Plus, Trash2, Play, Save } from "lucide-react";
+import { Database, Plus, Trash2, Play, Save, LoaderIcon, AlertCircleIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface BlendBuilderProps {
     datasets: Array<{ id: number; name: string; table_name: string }>;
+    onError?: (error: string | null) => void;
 }
 
-export function BlendBuilder({ datasets }: BlendBuilderProps) {
+export function BlendBuilder({ datasets, onError }: BlendBuilderProps) {
     const [selectedDatasets, setSelectedDatasets] = useState<number[]>([]);
     const [joinType, setJoinType] = useState<"inner" | "left" | "right" | "full">("inner");
     const [matches, setMatches] = useState<Array<{ left: string; right: string }>>([]);
     const [results, setResults] = useState<Record<string, unknown>[]>([]);
     const [resultColumns, setResultColumns] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleAddDataset = (id: number) => {
         if (selectedDatasets.length < 4 && !selectedDatasets.includes(id)) {
             setSelectedDatasets([...selectedDatasets, id]);
+            setError(null);
         }
     };
 
@@ -32,9 +37,15 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
 
     const handleRun = async () => {
         if (selectedDatasets.length < 2) {
-            alert("Please select at least 2 datasets");
+            const errorMsg = "Please select at least 2 datasets";
+            setError(errorMsg);
+            if (onError) onError(errorMsg);
             return;
         }
+
+        setIsLoading(true);
+        setError(null);
+        if (onError) onError(null);
 
         try {
             const result = await invoke<{ rows: Record<string, unknown>[]; columns: string[] }>("run_blend_query", {
@@ -46,9 +57,16 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
             });
             setResults(result.rows);
             setResultColumns(result.columns);
-        } catch (error) {
-            console.error("Blend query failed:", error);
-            alert("Blend failed: " + error);
+        } catch (err) {
+            console.error("Blend query failed:", err);
+            const errorMessage = err instanceof Error ? err.message : "Unknown error";
+            const fullError = `Blend failed: ${errorMessage}`;
+            setError(fullError);
+            if (onError) onError(fullError);
+            setResults([]);
+            setResultColumns([]);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -67,7 +85,7 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                             <button
                                 key={ds.id}
                                 onClick={() => handleAddDataset(ds.id)}
-                                disabled={selectedDatasets.includes(ds.id)}
+                                disabled={selectedDatasets.includes(ds.id) || isLoading}
                                 className="w-full px-2 py-1.5 text-xs text-left rounded hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                             >
                                 <Database className="w-3 h-3" />
@@ -92,7 +110,8 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                                     <span className="font-medium">{ds.name}</span>
                                     <button
                                         onClick={() => handleRemoveDataset(ds.id)}
-                                        className="text-muted-foreground hover:text-destructive"
+                                        disabled={isLoading}
+                                        className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                                     >
                                         <Trash2 size={12} />
                                     </button>
@@ -115,7 +134,8 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                             <button
                                 key={type}
                                 onClick={() => setJoinType(type)}
-                                className={`px-3 py-1.5 text-xs rounded capitalize transition-colors ${
+                                disabled={isLoading}
+                                className={`px-3 py-1.5 text-xs rounded capitalize transition-colors disabled:opacity-50 ${
                                     joinType === type
                                         ? "bg-primary text-primary-foreground"
                                         : "bg-muted/50 hover:bg-muted"
@@ -139,7 +159,7 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                         <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                             Match On
                         </h4>
-                        <Button size="icon-xs" variant="ghost" onClick={handleAddMatch}>
+                        <Button size="icon-xs" variant="ghost" onClick={handleAddMatch} disabled={isLoading}>
                             <Plus size={12} />
                         </Button>
                     </div>
@@ -155,7 +175,8 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                                         newMatches[i].left = e.target.value;
                                         setMatches(newMatches);
                                     }}
-                                    className="flex-1 px-2 py-1 text-xs border border-border/40 rounded"
+                                    disabled={isLoading}
+                                    className="flex-1 px-2 py-1 text-xs border border-border/40 rounded disabled:opacity-50"
                                 />
                                 <span className="text-muted-foreground">=</span>
                                 <input
@@ -167,11 +188,13 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                                         newMatches[i].right = e.target.value;
                                         setMatches(newMatches);
                                     }}
-                                    className="flex-1 px-2 py-1 text-xs border border-border/40 rounded"
+                                    disabled={isLoading}
+                                    className="flex-1 px-2 py-1 text-xs border border-border/40 rounded disabled:opacity-50"
                                 />
                                 <button
                                     onClick={() => setMatches(matches.filter((_, j) => j !== i))}
-                                    className="text-muted-foreground hover:text-destructive"
+                                    disabled={isLoading}
+                                    className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                                 >
                                     <Trash2 size={12} />
                                 </button>
@@ -185,20 +208,42 @@ export function BlendBuilder({ datasets }: BlendBuilderProps) {
                     </div>
                 </div>
 
+                {/* Error Display */}
+                {error && (
+                    <Alert variant="destructive">
+                        <AlertCircleIcon className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-2">
-                    <Button onClick={handleRun} size="sm" disabled={selectedDatasets.length < 2}>
-                        <Play className="w-4 h-4 mr-1" />
-                        Run Blend
+                    <Button onClick={handleRun} size="sm" disabled={selectedDatasets.length < 2 || isLoading}>
+                        {isLoading ? (
+                            <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                            <Play className="w-4 h-4 mr-1" />
+                        )}
+                        {isLoading ? "Blending..." : "Run Blend"}
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" disabled={isLoading}>
                         <Save className="w-4 h-4 mr-1" />
                         Save Blend
                     </Button>
                 </div>
 
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="flex flex-col items-center gap-3">
+                            <LoaderIcon className="h-6 w-6 text-primary animate-spin" />
+                            <p className="text-sm text-muted-foreground">Blending datasets...</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Results */}
-                {results.length > 0 && (
+                {!isLoading && results.length > 0 && (
                     <div className="bg-card/30 border border-border/40 rounded-xl overflow-auto">
                         <div className="px-4 py-2 border-b border-border/40 flex justify-between items-center">
                             <span className="text-xs font-medium">

@@ -5,12 +5,13 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } 
 import { PivotDropZone } from "./PivotDropZone";
 import { DraggableColumn } from "./DraggableColumn";
 import { Button } from "@/components/ui/button";
-import { Play, Save } from "lucide-react";
+import { Play, Save, LoaderIcon } from "lucide-react";
 
 interface PivotBuilderProps {
     columns: string[];
     onRun: (config: PivotConfig) => void;
     onSave: () => void;
+    isLoading?: boolean;
 }
 
 export interface PivotConfig {
@@ -20,7 +21,7 @@ export interface PivotConfig {
     filters: Array<{ column: string; operator: string; value: string }>;
 }
 
-export function PivotBuilder({ columns, onRun, onSave }: PivotBuilderProps) {
+export function PivotBuilder({ columns, onRun, onSave, isLoading = false }: PivotBuilderProps) {
     const [rows, setRows] = useState<string[]>([]);
     const [cols, setCols] = useState<string[]>([]);
     const [values, setValues] = useState<Array<{ column: string; agg: string }>>([]);
@@ -100,11 +101,15 @@ export function PivotBuilder({ columns, onRun, onSave }: PivotBuilderProps) {
 
             {/* Actions */}
             <div className="flex gap-2 mt-4">
-                <Button onClick={handleRun} size="sm">
-                    <Play className="w-4 h-4 mr-1" />
-                    Run
+                <Button onClick={handleRun} size="sm" disabled={isLoading}>
+                    {isLoading ? (
+                        <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                        <Play className="w-4 h-4 mr-1" />
+                    )}
+                    {isLoading ? "Running..." : "Run"}
                 </Button>
-                <Button onClick={onSave} size="sm" variant="outline">
+                <Button onClick={onSave} size="sm" variant="outline" disabled={isLoading}>
                     <Save className="w-4 h-4 mr-1" />
                     Save
                 </Button>
