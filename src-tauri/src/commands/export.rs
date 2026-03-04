@@ -85,6 +85,8 @@ pub async fn export_report(
 
     // Add chart image if provided
     if let Some(image_data) = chart_image {
+        println!("📊 Chart image received: {} bytes", image_data.len());
+
         // Calculate position for chart (below the table)
         let table_end_row = (rows.len() + 3) as u32; // +3 for headers and spacing
 
@@ -95,21 +97,61 @@ pub async fn export_report(
             chrono::Local::now().format("%Y%m%d_%H%M%S_%3f")
         );
 
+        println!("💾 Writing chart to temp file: {}", temp_image_path);
+
         // Write image data to temp file
         std::fs::write(&temp_image_path, &image_data)
-            .map_err(|e| format!("Failed to write chart image: {e}"))?;
+            .map_err(|e| {
+                println!("❌ Failed to write chart image: {}", e);
+                format!("Failed to write chart image: {e}")
+            })?;
+
+        println!("✅ Chart image written successfully");
+
+        // Verify it's a valid PNG by checking the header
+        let file_contents = std::fs::read(&temp_image_path)
+            .map_err(|e| format!("Failed to read temp file: {e}"))?;
+
+        if file_contents.len() < 8 {
+            return Err("Image file too small to be valid".to_string());
+        }
+
+        // PNG header: 137 80 78 71 13 10 26 10
+        let png_header: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        if &file_contents[0..8] != &png_header {
+            println!("⚠️ Warning: File doesn't start with PNG header");
+            println!("First 8 bytes: {:02X?}", &file_contents[0..8]);
+        } else {
+            println!("✅ PNG header verified");
+        }
 
         // Create image and handle the Result
-        let img = Image::new(&temp_image_path)
-            .map_err(|e| format!("Failed to create image: {e}"))?;
+        let mut img = Image::new(&temp_image_path)
+            .map_err(|e| {
+                println!("❌ Failed to create image object: {}", e);
+                format!("Failed to create image: {e}")
+            })?;
 
-        // Add image to worksheet using the correct API
+        println!("🖼️ Image object created, dimensions: {}x{}", img.width(), img.height());
+
+        // Set image scale to make it fit better
+        img.set_scale_width(0.5);
+
+        // Add image to worksheet - try moving it 2 rows down for better visibility
+        let image_row = table_end_row + 2;
         sheet
-            .embed_image(table_end_row, 0, &img)
-            .map_err(|e| format!("Failed to add chart image: {e}"))?;
+            .embed_image(image_row, 0, &img)
+            .map_err(|e| {
+                println!("❌ Failed to embed image in sheet: {}", e);
+                format!("Failed to add chart image: {e}")
+            })?;
+
+        println!("✅ Chart embedded successfully at row {} with scale 0.5", image_row);
 
         // Clean up temp file
         let _ = std::fs::remove_file(&temp_image_path);
+    } else {
+        println!("⚠️ No chart image provided");
     }
 
     workbook
