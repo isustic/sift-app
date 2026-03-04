@@ -369,23 +369,34 @@ pub fn generate_epp_report(
 
                         // Culoare+Decolorare calculation
                         if !cod.is_empty() {
-                            if let Ok(subgrupa) = conn.query_row(
+                            eprintln!("DEBUG C+D: Looking up cod='{}'", cod);
+                            match conn.query_row(
                                 "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
                                 params![cod],
                                 |row| row.get::<_, String>(0)
                             ) {
-                                let subgrupa_lower = subgrupa.to_lowercase();
-                                if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                    match q {
-                                        1 => entry.culoare_decolorare_q1 += value,
-                                        2 => entry.culoare_decolorare_q2 += value,
-                                        3 => entry.culoare_decolorare_q3 += value,
-                                        4 => entry.culoare_decolorare_q4 += value,
-                                        _ => {}
+                                Ok(subgrupa) => {
+                                    eprintln!("DEBUG C+D: Found subgrupa='{}' for cod='{}'", subgrupa, cod);
+                                    let subgrupa_lower = subgrupa.to_lowercase();
+                                    if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                        eprintln!("DEBUG C+D: MATCH! Adding value {} to Q{}", value, q);
+                                        match q {
+                                            1 => entry.culoare_decolorare_q1 += value,
+                                            2 => entry.culoare_decolorare_q2 += value,
+                                            3 => entry.culoare_decolorare_q3 += value,
+                                            4 => entry.culoare_decolorare_q4 += value,
+                                            _ => {}
+                                        }
+                                    } else {
+                                        eprintln!("DEBUG C+D: No match - subgrupa='{}' is not culoare or decolorare", subgrupa_lower);
                                     }
                                 }
+                                Err(e) => {
+                                    eprintln!("DEBUG C+D: No subgroup found for cod='{}': {}", cod, e);
+                                }
                             }
-                            // If query returns error (no match), just skip - treated as 0
+                        } else {
+                            eprintln!("DEBUG C+D: cod is empty, skipping");
                         }
                     } else {
                         // Debug: log why date parsing failed
