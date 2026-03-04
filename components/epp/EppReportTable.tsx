@@ -29,6 +29,10 @@ export interface EppRow {
   total: number;
   program: string;
   procent: string;
+  culoare_decolorare_q1: number;
+  culoare_decolorare_q2: number;
+  culoare_decolorare_q3: number;
+  culoare_decolorare_q4: number;
 }
 
 interface EppReportTableProps {
