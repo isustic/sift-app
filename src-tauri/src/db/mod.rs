@@ -1,4 +1,5 @@
 pub mod schema;
+pub mod analysis;
 
 use rusqlite::{Connection, Result};
 use std::sync::Mutex;
@@ -73,6 +74,9 @@ pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection> {
             subgrupa    TEXT    NOT NULL
         );
     ")?;
+
+    // Run analysis workspace migrations
+    crate::db::analysis::run_analysis_migrations(&conn)?;
 
     Ok(conn)
 }
