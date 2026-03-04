@@ -120,7 +120,7 @@ function ReportPageContent() {
 
   // Resizable sidebar
   const { sidebarWidth, isDragging, dragHandleProps } = useResizableSidebar({
-    minWidth: 250,
+    minWidth: 300,
     maxWidth: 500,
     defaultWidth: 320,
     storageKey: 'report-sidebar-width',
