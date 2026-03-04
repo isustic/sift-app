@@ -5,4 +5,5 @@ pub mod export;
 pub mod ingest;
 pub mod queries;
 pub mod report;
+pub mod subgroups;
 pub mod templates;

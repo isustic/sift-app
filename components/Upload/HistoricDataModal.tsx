@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/Upload/DataTable";
 import { X } from "lucide-react";
 
-const ROMANIAN_MONTHS = [
-    "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
-    "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"
+const ENGLISH_MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
 ];
 
 interface HistoricDataModalProps {
@@ -20,10 +20,10 @@ interface HistoricDataModalProps {
     createdAt: string;
 }
 
-function formatRomanianDate(dateString: string): string {
+function formatEnglishDate(dateString: string): string {
     const date = new Date(dateString);
     const day = date.getDate();
-    const month = ROMANIAN_MONTHS[date.getMonth()];
+    const month = ENGLISH_MONTHS[date.getMonth()];
     const year = date.getFullYear();
     const hours = date.getHours().toString().padStart(2, "0");
     const minutes = date.getMinutes().toString().padStart(2, "0");
@@ -40,13 +40,13 @@ export function HistoricDataModal({
     rowCount,
     createdAt,
 }: HistoricDataModalProps) {
-    const formattedDate = formatRomanianDate(createdAt);
+    const formattedDate = formatEnglishDate(createdAt);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent showCloseButton={false} className="!w-[96vw] !max-w-none h-[90vh] p-0 gap-0 flex flex-col">
                 {/* Visually hidden title for accessibility */}
-                <DialogTitle className="sr-only">{datasetName} - Date Istorice</DialogTitle>
+                <DialogTitle className="sr-only">{datasetName} - Historic Data</DialogTitle>
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/30">
@@ -57,7 +57,7 @@ export function HistoricDataModal({
                             <span className="w-1 h-1 rounded-full bg-border" />
                             <span>{formattedDate}</span>
                             <span className="w-1 h-1 rounded-full bg-border" />
-                            <span>{rowCount.toLocaleString()} rânduri</span>
+                            <span>{rowCount.toLocaleString()} rows</span>
                         </div>
                     </div>
                     <Button

@@ -65,6 +65,13 @@ pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection> {
             created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
             UNIQUE(item_type, item_id)
         );
+
+        CREATE TABLE IF NOT EXISTS subgroups (
+            cod         TEXT    NOT NULL,
+            denumire    TEXT    NOT NULL,
+            grupa       TEXT    NOT NULL,
+            subgrupa    TEXT    NOT NULL
+        );
     ")?;
 
     Ok(conn)

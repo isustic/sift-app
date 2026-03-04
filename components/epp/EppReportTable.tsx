@@ -33,6 +33,10 @@ export interface EppRow {
   culoare_decolorare_q2: number;
   culoare_decolorare_q3: number;
   culoare_decolorare_q4: number;
+  haircare_tehnic_q1: number;
+  haircare_tehnic_q2: number;
+  haircare_tehnic_q3: number;
+  haircare_tehnic_q4: number;
 }
 
 interface EppReportTableProps {
@@ -97,6 +101,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "C+D Q2": row.culoare_decolorare_q2,
         "C+D Q3": row.culoare_decolorare_q3,
         "C+D Q4": row.culoare_decolorare_q4,
+        "HT Q1": row.haircare_tehnic_q1,
+        "HT Q2": row.haircare_tehnic_q2,
+        "HT Q3": row.haircare_tehnic_q3,
+        "HT Q4": row.haircare_tehnic_q4,
       }));
 
       const columns = [
@@ -115,6 +123,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "C+D Q2",
         "C+D Q3",
         "C+D Q4",
+        "HT Q1",
+        "HT Q2",
+        "HT Q3",
+        "HT Q4",
       ];
 
       await invoke("export_report", {
@@ -261,6 +273,38 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
       },
+      {
+        id: "haircare_tehnic_q1",
+        accessorKey: "haircare_tehnic_q1",
+        header: "HT Q1",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "haircare_tehnic_q2",
+        accessorKey: "haircare_tehnic_q2",
+        header: "HT Q2",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "haircare_tehnic_q3",
+        accessorKey: "haircare_tehnic_q3",
+        header: "HT Q3",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "haircare_tehnic_q4",
+        accessorKey: "haircare_tehnic_q4",
+        header: "HT Q4",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
     ],
     []
   );
@@ -299,6 +343,14 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         return "bg-indigo-500/5";
       case "culoare_decolorare_q4":
         return "bg-violet-500/5";
+      case "haircare_tehnic_q1":
+        return "bg-cyan-500/5";
+      case "haircare_tehnic_q2":
+        return "bg-teal-500/5";
+      case "haircare_tehnic_q3":
+        return "bg-emerald-500/5";
+      case "haircare_tehnic_q4":
+        return "bg-lime-500/5";
       default:
         return "";
     }

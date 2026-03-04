@@ -208,11 +208,17 @@ export function Step7_Charts({
 
   return (
     <>
-      {/* Hidden chart for export - always rendered but positioned off-screen */}
+      {/* Hidden chart for export - rendered with opacity 0 so Recharts computes proper dimensions */}
       {!isVisible && chartConfig?.enabled && (
         <div
           ref={chartRef}
-          className="fixed -left-[9999px] top-0 w-[800px] h-[600px] bg-white p-6"
+          className="fixed left-0 top-0 pointer-events-none bg-white p-6"
+          style={{
+            width: '800px',
+            height: '600px',
+            opacity: 0,
+            zIndex: -1,
+          }}
           aria-hidden="true"
         >
           {renderChart()}
@@ -221,123 +227,123 @@ export function Step7_Charts({
 
       {/* Main visible chart */}
       <div className={cn("space-y-6", !isVisible && "hidden")}>
-      {/* Header */}
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Chart Visualization</h2>
-        <p className="text-sm text-muted-foreground">
-          Add a visual chart to complement your table data
-        </p>
-      </div>
-
-      {!chartCheck.supported ? (
-        <div className="rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
-          <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-          <p className="text-sm font-medium mb-1">Chart not available</p>
-          <p className="text-xs text-muted-foreground">{chartCheck.reason}</p>
+        {/* Header */}
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">Chart Visualization</h2>
+          <p className="text-sm text-muted-foreground">
+            Add a visual chart to complement your table data
+          </p>
         </div>
-      ) : (
-        <>
-          {/* Enable Toggle */}
-          <div className="flex items-center justify-between rounded-lg border bg-card p-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="chart-toggle" className="text-base font-medium">
-                Enable Chart
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Show a visual chart alongside your table data
-              </p>
-            </div>
-            <Switch
-              id="chart-toggle"
-              checked={enabled}
-              onCheckedChange={setEnabled}
-            />
-          </div>
 
-          {enabled && (
-            <>
-              {/* Chart Type Selector */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Chart Type</Label>
-                  {recommendedType === selectedType && (
-                    <Badge variant="outline" className="text-xs">
-                      Recommended
-                    </Badge>
-                  )}
-                </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {CHART_TYPES.map((chart) => {
-                    const Icon = chart.icon;
-                    const isSelected = selectedType === chart.type;
-                    return (
-                      <button
-                        key={chart.type}
-                        onClick={() => handleTypeSelect(chart.type)}
-                        className={`
+        {!chartCheck.supported ? (
+          <div className="rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
+            <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p className="text-sm font-medium mb-1">Chart not available</p>
+            <p className="text-xs text-muted-foreground">{chartCheck.reason}</p>
+          </div>
+        ) : (
+          <>
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between rounded-lg border bg-card p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="chart-toggle" className="text-base font-medium">
+                  Enable Chart
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Show a visual chart alongside your table data
+                </p>
+              </div>
+              <Switch
+                id="chart-toggle"
+                checked={enabled}
+                onCheckedChange={setEnabled}
+              />
+            </div>
+
+            {enabled && (
+              <>
+                {/* Chart Type Selector */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Chart Type</Label>
+                    {recommendedType === selectedType && (
+                      <Badge variant="outline" className="text-xs">
+                        Recommended
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {CHART_TYPES.map((chart) => {
+                      const Icon = chart.icon;
+                      const isSelected = selectedType === chart.type;
+                      return (
+                        <button
+                          key={chart.type}
+                          onClick={() => handleTypeSelect(chart.type)}
+                          className={`
                           flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all
                           ${isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-muted-foreground/30"
-                          }
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-muted-foreground/30"
+                            }
                         `}
-                        title={chart.description}
-                      >
-                        <Icon className={`w-5 h-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className={`text-xs font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
-                          {chart.label}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          title={chart.description}
+                        >
+                          <Icon className={`w-5 h-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                          <span className={`text-xs font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                            {chart.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedType && (
+                    <p className="text-xs text-muted-foreground">
+                      {getChartTypeDescription(selectedType)}
+                    </p>
+                  )}
                 </div>
-                {selectedType && (
-                  <p className="text-xs text-muted-foreground">
-                    {getChartTypeDescription(selectedType)}
-                  </p>
-                )}
-              </div>
 
-              {/* Chart Preview */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Preview</Label>
-                <div ref={chartRef} className="rounded-lg border bg-card p-6">
-                  {renderChart()}
-                </div>
-              </div>
-
-              {/* Data Info */}
-              {chartData && (
-                <div className="rounded-lg bg-muted/30 p-4 space-y-2">
-                  <p className="text-xs font-medium">Chart Configuration</p>
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">X-Axis:</span>{" "}
-                      <span className="font-medium">{chartData.xAxisKey}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Data Series:</span>{" "}
-                      <span className="font-medium">{chartData.series.length}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Data Points:</span>{" "}
-                      <span className="font-medium">{chartData.data.length}</span>
-                    </div>
+                {/* Chart Preview */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Preview</Label>
+                  <div ref={isVisible ? chartRef : undefined} className="rounded-lg border bg-white p-6">
+                    {renderChart()}
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </>
-      )}
 
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t">
-        <Button variant="outline" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Results
-        </Button>
-      </div>
+                {/* Data Info */}
+                {chartData && (
+                  <div className="rounded-lg bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-medium">Chart Configuration</p>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">X-Axis:</span>{" "}
+                        <span className="font-medium">{chartData.xAxisKey}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Data Series:</span>{" "}
+                        <span className="font-medium">{chartData.series.length}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Data Points:</span>{" "}
+                        <span className="font-medium">{chartData.data.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <Button variant="outline" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Results
+          </Button>
+        </div>
       </div>
     </>
   );

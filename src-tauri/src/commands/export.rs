@@ -126,7 +126,7 @@ pub async fn export_report(
         }
 
         // Create image and handle the Result
-        let mut img = Image::new(&temp_image_path)
+        let img = Image::new(&temp_image_path)
             .map_err(|e| {
                 println!("❌ Failed to create image object: {}", e);
                 format!("Failed to create image: {e}")
@@ -135,18 +135,18 @@ pub async fn export_report(
         println!("🖼️ Image object created, dimensions: {}x{}", img.width(), img.height());
 
         // Set image scale to make it fit better
-        img.set_scale_width(0.5);
+        let img = img.set_scale_width(0.5).set_scale_height(0.5);
 
         // Add image to worksheet - try moving it 2 rows down for better visibility
         let image_row = table_end_row + 2;
         sheet
-            .embed_image(image_row, 0, &img)
+            .insert_image(image_row, 0, &img)
             .map_err(|e| {
-                println!("❌ Failed to embed image in sheet: {}", e);
+                println!("❌ Failed to insert image in sheet: {}", e);
                 format!("Failed to add chart image: {e}")
             })?;
 
-        println!("✅ Chart embedded successfully at row {} with scale 0.5", image_row);
+        println!("✅ Chart inserted successfully at row {} with scale 0.5", image_row);
 
         // Clean up temp file
         let _ = std::fs::remove_file(&temp_image_path);

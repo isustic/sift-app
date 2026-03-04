@@ -592,11 +592,22 @@ function ReportPageContent() {
       if (chartConfig.enabled && chartRef.current) {
         try {
           console.log("📸 Attempting to capture chart image...");
+          // Temporarily make the chart fully visible for capture
+          // (html-to-image clones styles, so opacity:0 would produce a blank image)
+          const prevOpacity = chartRef.current.style.opacity;
+          chartRef.current.style.opacity = '1';
+
           const base64Image = await exportChartAsImage(chartRef.current);
+
+          // Restore hidden state
+          chartRef.current.style.opacity = prevOpacity;
+
           console.log("✅ Chart captured successfully, base64 length:", base64Image.length);
           chartImageBytes = base64ToUint8Array(base64Image);
           console.log("✅ Chart image bytes created, length:", chartImageBytes.length);
         } catch (error) {
+          // Restore hidden state on error
+          if (chartRef.current) chartRef.current.style.opacity = '0';
           console.error("❌ Failed to capture chart image, exporting without chart:", error);
           // Continue export without chart
         }

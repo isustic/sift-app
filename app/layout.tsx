@@ -29,7 +29,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Sift",
+    title: "Sift Analytics",
     description: "Analyze and aggregate XLSX data with dynamic pivot reports",
 };
 

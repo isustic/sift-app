@@ -33,6 +33,10 @@ pub struct EppRow {
     pub culoare_decolorare_q2: f64,
     pub culoare_decolorare_q3: f64,
     pub culoare_decolorare_q4: f64,
+    pub haircare_tehnic_q1: f64,
+    pub haircare_tehnic_q2: f64,
+    pub haircare_tehnic_q3: f64,
+    pub haircare_tehnic_q4: f64,
 }
 
 /// Complete EPP report result
@@ -359,6 +363,10 @@ pub fn generate_epp_report(
                     culoare_decolorare_q2: 0.0,
                     culoare_decolorare_q3: 0.0,
                     culoare_decolorare_q4: 0.0,
+                    haircare_tehnic_q1: 0.0,
+                    haircare_tehnic_q2: 0.0,
+                    haircare_tehnic_q3: 0.0,
+                    haircare_tehnic_q4: 0.0,
                 });
 
                 // Only add value if it's non-zero and date matches
@@ -374,19 +382,17 @@ pub fn generate_epp_report(
                             _ => {}
                         }
 
-                        // Culoare+Decolorare calculation
+                        // Culoare+Decolorare and Haircare Tehnic calculation (single query)
                         if !cod.is_empty() {
-                            eprintln!("DEBUG C+D: Looking up cod='{}'", cod);
                             match conn.query_row(
                                 "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
                                 params![cod],
                                 |row| row.get::<_, String>(0)
                             ) {
                                 Ok(subgrupa) => {
-                                    eprintln!("DEBUG C+D: Found subgrupa='{}' for cod='{}'", subgrupa, cod);
                                     let subgrupa_lower = subgrupa.to_lowercase();
+                                    // Check for Culoare or Decolorare
                                     if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                        eprintln!("DEBUG C+D: MATCH! Adding value {} to Q{}", value, q);
                                         match q {
                                             1 => entry.culoare_decolorare_q1 += value,
                                             2 => entry.culoare_decolorare_q2 += value,
@@ -394,16 +400,22 @@ pub fn generate_epp_report(
                                             4 => entry.culoare_decolorare_q4 += value,
                                             _ => {}
                                         }
-                                    } else {
-                                        eprintln!("DEBUG C+D: No match - subgrupa='{}' is not culoare or decolorare", subgrupa_lower);
+                                    }
+                                    // Check for Haircare Tehnic
+                                    if subgrupa_lower == "haircare tehnic" {
+                                        match q {
+                                            1 => entry.haircare_tehnic_q1 += value,
+                                            2 => entry.haircare_tehnic_q2 += value,
+                                            3 => entry.haircare_tehnic_q3 += value,
+                                            4 => entry.haircare_tehnic_q4 += value,
+                                            _ => {}
+                                        }
                                     }
                                 }
-                                Err(e) => {
-                                    eprintln!("DEBUG C+D: No subgroup found for cod='{}': {}", cod, e);
+                                Err(_) => {
+                                    // No subgroup found - treated as 0 for both categories
                                 }
                             }
-                        } else {
-                            eprintln!("DEBUG C+D: cod is empty, skipping");
                         }
                     } else {
                         // Debug: log why date parsing failed
@@ -532,6 +544,10 @@ pub fn generate_epp_report(
                         culoare_decolorare_q2: 0.0,
                         culoare_decolorare_q3: 0.0,
                         culoare_decolorare_q4: 0.0,
+                        haircare_tehnic_q1: 0.0,
+                        haircare_tehnic_q2: 0.0,
+                        haircare_tehnic_q3: 0.0,
+                        haircare_tehnic_q4: 0.0,
                     });
 
                     // Only add value if it's non-zero and date parses
@@ -540,68 +556,60 @@ pub fn generate_epp_report(
 
                         if let Some(d) = date {
                             let month = d.month() as u32;
+
+                            // Query subgrupa once per row (more efficient)
+                            let subgrupa_lower = if !cod.is_empty() {
+                                conn.query_row(
+                                    "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                    params![cod],
+                                    |row| row.get::<_, String>(0)
+                                ).ok()
+                            } else {
+                                None
+                            };
+
                             match month {
                                 1..=3 => {
                                     entry.q1 += value;
-                                    // Culoare+Decolorare calculation
-                                    if !cod.is_empty() {
-                                        if let Ok(subgrupa) = conn.query_row(
-                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
-                                            params![cod],
-                                            |row| row.get::<_, String>(0)
-                                        ) {
-                                            let subgrupa_lower = subgrupa.to_lowercase();
-                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                                entry.culoare_decolorare_q1 += value;
-                                            }
+                                    if let Some(ref subgrupa) = subgrupa_lower {
+                                        if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                            entry.culoare_decolorare_q1 += value;
+                                        }
+                                        if subgrupa == "haircare tehnic" {
+                                            entry.haircare_tehnic_q1 += value;
                                         }
                                     }
                                 }
                                 4..=6 => {
                                     entry.q2 += value;
-                                    // Culoare+Decolorare calculation
-                                    if !cod.is_empty() {
-                                        if let Ok(subgrupa) = conn.query_row(
-                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
-                                            params![cod],
-                                            |row| row.get::<_, String>(0)
-                                        ) {
-                                            let subgrupa_lower = subgrupa.to_lowercase();
-                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                                entry.culoare_decolorare_q2 += value;
-                                            }
+                                    if let Some(ref subgrupa) = subgrupa_lower {
+                                        if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                            entry.culoare_decolorare_q2 += value;
+                                        }
+                                        if subgrupa == "haircare tehnic" {
+                                            entry.haircare_tehnic_q2 += value;
                                         }
                                     }
                                 }
                                 7..=9 => {
                                     entry.q3 += value;
-                                    // Culoare+Decolorare calculation
-                                    if !cod.is_empty() {
-                                        if let Ok(subgrupa) = conn.query_row(
-                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
-                                            params![cod],
-                                            |row| row.get::<_, String>(0)
-                                        ) {
-                                            let subgrupa_lower = subgrupa.to_lowercase();
-                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                                entry.culoare_decolorare_q3 += value;
-                                            }
+                                    if let Some(ref subgrupa) = subgrupa_lower {
+                                        if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                            entry.culoare_decolorare_q3 += value;
+                                        }
+                                        if subgrupa == "haircare tehnic" {
+                                            entry.haircare_tehnic_q3 += value;
                                         }
                                     }
                                 }
                                 10..=12 => {
                                     entry.q4 += value;
-                                    // Culoare+Decolorare calculation
-                                    if !cod.is_empty() {
-                                        if let Ok(subgrupa) = conn.query_row(
-                                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
-                                            params![cod],
-                                            |row| row.get::<_, String>(0)
-                                        ) {
-                                            let subgrupa_lower = subgrupa.to_lowercase();
-                                            if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
-                                                entry.culoare_decolorare_q4 += value;
-                                            }
+                                    if let Some(ref subgrupa) = subgrupa_lower {
+                                        if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                            entry.culoare_decolorare_q4 += value;
+                                        }
+                                        if subgrupa == "haircare tehnic" {
+                                            entry.haircare_tehnic_q4 += value;
                                         }
                                     }
                                 }
@@ -640,6 +648,10 @@ pub fn generate_epp_report(
                 culoare_decolorare_q2: data.culoare_decolorare_q2,
                 culoare_decolorare_q3: data.culoare_decolorare_q3,
                 culoare_decolorare_q4: data.culoare_decolorare_q4,
+                haircare_tehnic_q1: data.haircare_tehnic_q1,
+                haircare_tehnic_q2: data.haircare_tehnic_q2,
+                haircare_tehnic_q3: data.haircare_tehnic_q3,
+                haircare_tehnic_q4: data.haircare_tehnic_q4,
             }
         })
         .collect();
@@ -666,6 +678,10 @@ struct ClientData {
     culoare_decolorare_q2: f64,
     culoare_decolorare_q3: f64,
     culoare_decolorare_q4: f64,
+    haircare_tehnic_q1: f64,
+    haircare_tehnic_q2: f64,
+    haircare_tehnic_q3: f64,
+    haircare_tehnic_q4: f64,
 }
 
 /// Normalize date string by padding single-digit days/months with leading zeros

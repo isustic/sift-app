@@ -165,14 +165,14 @@ export function DataTable({ datasetId, datasetName, rowCount, uploadZone }: Data
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <Input
-                        placeholder="Caută în toate coloanele..."
+                        placeholder="Search all columns..."
                         value={globalSearch}
                         onChange={(e) => { setGlobalSearch(e.target.value); setPage(0); }}
                         className="pl-8 h-8 text-xs bg-background/60 border-border/50 focus-visible:border-primary/50 focus-visible:ring-primary/20"
                     />
                     {globalSearch && (
                         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-data">
-                            {searchTotal > 0 ? `${searchTotal.toLocaleString()} rezultate` : isSearching ? "Se caută..." : ""}
+                            {searchTotal > 0 ? `${searchTotal.toLocaleString()} results` : isSearching ? "Searching..." : ""}
                         </span>
                     )}
                 </div>
@@ -273,7 +273,7 @@ export function DataTable({ datasetId, datasetName, rowCount, uploadZone }: Data
                     <div className="flex flex-col items-center justify-center h-64 text-center">
                         <Search className="w-10 h-10 text-muted-foreground/30 mb-3" />
                         <p className="text-sm text-muted-foreground">
-                            {globalSearch ? "Nu s-au găsit rezultate" : "Nu există date"}
+                            {globalSearch ? "No results found" : "No data available"}
                         </p>
                     </div>
                 )}
@@ -281,7 +281,7 @@ export function DataTable({ datasetId, datasetName, rowCount, uploadZone }: Data
                 {isSearching && (
                     <div className="flex flex-col items-center justify-center h-64 text-center">
                         <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3" />
-                        <p className="text-sm text-muted-foreground">Se caută...</p>
+                        <p className="text-sm text-muted-foreground">Searching...</p>
                     </div>
                 )}
             </div>
@@ -290,10 +290,10 @@ export function DataTable({ datasetId, datasetName, rowCount, uploadZone }: Data
             <div className="h-10 px-4 flex items-center justify-between gap-4 border-t border-border/50 bg-card/30 backdrop-blur-sm">
                 <span className="text-[10px] text-muted-foreground font-data">
                     {filteredRows.length > 0
-                        ? `${displayStart.toLocaleString()}-${displayEnd.toLocaleString()} din ${(searchTotal > 0 ? searchTotal : total).toLocaleString()} rânduri`
-                        : "Nu există rânduri"
+                        ? `${displayStart.toLocaleString()}-${displayEnd.toLocaleString()} of ${(searchTotal > 0 ? searchTotal : total).toLocaleString()} rows`
+                        : "No rows"
                     }
-                    {globalSearch && searchTotal > 0 && ` · ${searchTotal.toLocaleString()} rezultate`}
+                    {globalSearch && searchTotal > 0 && ` · ${searchTotal.toLocaleString()} results`}
                 </span>
                 <div className="flex items-center gap-1">
                     <Button

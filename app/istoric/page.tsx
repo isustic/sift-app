@@ -8,9 +8,9 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const ROMANIAN_MONTHS = [
-    "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
-    "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"
+const ENGLISH_MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
 ];
 
 interface Dataset {
@@ -165,7 +165,7 @@ export default function IstoricPage() {
                     <History className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                    <h1 className="text-sm font-semibold">Istoric</h1>
+                    <h1 className="text-sm font-semibold">History</h1>
                     <p className="text-[10px] text-muted-foreground">
                         {datasets.length} {datasets.length === 1 ? "dataset" : "datasets"}
                     </p>
@@ -179,9 +179,9 @@ export default function IstoricPage() {
                         <div className="w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-muted/20 to-muted/10 flex items-center justify-center border border-border/50">
                             <Calendar className="w-7 h-7 text-muted-foreground/50" />
                         </div>
-                        <h2 className="text-lg font-semibold mb-2 text-foreground">Nu există date</h2>
+                        <h2 className="text-lg font-semibold mb-2 text-foreground">No data available</h2>
                         <p className="text-sm text-muted-foreground">
-                            Importă fișiere Excel pentru a vedea istoricul
+                            Import Excel files to view history
                         </p>
                     </div>
                 ) : (
@@ -316,7 +316,7 @@ export default function IstoricPage() {
                                                         ) : (
                                                             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                                                         )}
-                                                        <span className="text-xs font-medium">{ROMANIAN_MONTHS[month]}</span>
+                                                        <span className="text-xs font-medium">{ENGLISH_MONTHS[month]}</span>
                                                         <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-background/60">
                                                             {monthDatasets.length}
                                                         </span>
@@ -340,7 +340,7 @@ export default function IstoricPage() {
                                                                     </p>
                                                                 </div>
                                                                 <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/40 font-data shrink-0">
-                                                                    {dataset.row_count.toLocaleString()} rânduri
+                                                                    {dataset.row_count.toLocaleString()} rows
                                                                 </span>
                                                             </button>
                                                         ))}
