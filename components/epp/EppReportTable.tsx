@@ -221,6 +221,38 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
           );
         },
       },
+      {
+        id: "culoare_decolorare_q1",
+        accessorKey: "culoare_decolorare_q1",
+        header: "C+D Q1",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "culoare_decolorare_q2",
+        accessorKey: "culoare_decolorare_q2",
+        header: "C+D Q2",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "culoare_decolorare_q3",
+        accessorKey: "culoare_decolorare_q3",
+        header: "C+D Q3",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "culoare_decolorare_q4",
+        accessorKey: "culoare_decolorare_q4",
+        header: "C+D Q4",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
     ],
     []
   );
@@ -251,6 +283,14 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         return "bg-orange-500/5";
       case "q4_total":
         return "bg-red-500/5";
+      case "culoare_decolorare_q1":
+        return "bg-purple-500/5";
+      case "culoare_decolorare_q2":
+        return "bg-pink-500/5";
+      case "culoare_decolorare_q3":
+        return "bg-indigo-500/5";
+      case "culoare_decolorare_q4":
+        return "bg-violet-500/5";
       default:
         return "";
     }
