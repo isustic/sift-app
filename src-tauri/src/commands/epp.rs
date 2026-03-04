@@ -319,6 +319,13 @@ pub fn generate_epp_report(
                     rusqlite::types::ValueRef::Text(s) => {
                         std::str::from_utf8(s).unwrap_or("").to_string()
                     }
+                    rusqlite::types::ValueRef::Integer(i) => {
+                        i.to_string()
+                    }
+                    rusqlite::types::ValueRef::Real(r) => {
+                        r.to_string()
+                    }
+                    rusqlite::types::ValueRef::Null => String::new(),
                     _ => String::new()
                 };
 
@@ -493,6 +500,13 @@ pub fn generate_epp_report(
                         rusqlite::types::ValueRef::Text(s) => {
                             std::str::from_utf8(s).unwrap_or("").to_string()
                         }
+                        rusqlite::types::ValueRef::Integer(i) => {
+                            i.to_string()
+                        }
+                        rusqlite::types::ValueRef::Real(r) => {
+                            r.to_string()
+                        }
+                        rusqlite::types::ValueRef::Null => String::new(),
                         _ => String::new()
                     };
 
