@@ -29,6 +29,10 @@ pub struct EppRow {
     pub total: f64,         // same as reducere
     pub program: String,    // program name or "-"
     pub procent: String,    // percentage or "-"
+    pub culoare_decolorare_q1: f64,
+    pub culoare_decolorare_q2: f64,
+    pub culoare_decolorare_q3: f64,
+    pub culoare_decolorare_q4: f64,
 }
 
 /// Complete EPP report result
@@ -587,15 +591,17 @@ fn parse_quarter(date_str: &str, report_year: i32) -> Option<u32> {
 
 /// Calculate program tier and percentage based on total amount
 fn calculate_program(total: f64) -> (String, String) {
-    if total < 14999.0 {
+    if total < 15000.0 {
         ("-".to_string(), "-".to_string())
     } else if total <= 29999.0 {
-        ("Starter 5%".to_string(), "5%".to_string())
+        ("Starter 🌱 5%".to_string(), "5%".to_string())
     } else if total <= 49999.0 {
-        ("Explorer 6%".to_string(), "6%".to_string())
-    } else if total <= 99999.0 {
-        ("Artist 7%".to_string(), "7%".to_string())
+        ("Explorer 🚀 6%".to_string(), "6%".to_string())
+    } else if total <= 74999.0 {
+        ("Artist 🎨 7%".to_string(), "7%".to_string())
+    } else if total <= 100000.0 {
+        ("Master ⏳ 8%".to_string(), "8%".to_string())
     } else {
-        ("Prestige 10%".to_string(), "10%".to_string())
+        ("Prestige 🌟 10%".to_string(), "10%".to_string())
     }
 }
