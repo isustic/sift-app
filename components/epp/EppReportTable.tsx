@@ -93,6 +93,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         Total: row.total,
         "Program incadrare": row.program,
         "Procent incadrare": row.procent,
+        "C+D Q1": row.culoare_decolorare_q1,
+        "C+D Q2": row.culoare_decolorare_q2,
+        "C+D Q3": row.culoare_decolorare_q3,
+        "C+D Q4": row.culoare_decolorare_q4,
       }));
 
       const columns = [
@@ -107,6 +111,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "Total",
         "Program incadrare",
         "Procent incadrare",
+        "C+D Q1",
+        "C+D Q2",
+        "C+D Q3",
+        "C+D Q4",
       ];
 
       await invoke("export_report", {
