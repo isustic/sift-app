@@ -42,7 +42,12 @@
   },
   "plugins": {
     "updater": {
-      "active": false
+      "active": true,
+      "endpoints": [
+        "https://github.com/isustic/sift-app/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCMEM4QjFEQkFBOTUyREEKUldUYVVxbTZIWXNNT3h3emhienBZdnBWVE9NaXMzOERBcFFyMG1NQ0FGcFJDb2I4Wk1nMENLZmoK"
     }
   }
 }
