@@ -36,7 +36,7 @@ export async function checkForUpdates(
       ? release.tag_name.slice(1)
       : release.tag_name;
 
-    const hasUpdate = latestVersion !== currentVersion;
+    const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
 
     return {
       hasUpdate,
