@@ -5,7 +5,7 @@ import {
     Sun, Moon,
     Database, BarChart3, TrendingUp, Clock, Star,
     Trash2, Package, AlertTriangle, FileSpreadsheet,
-    GitCompare
+    GitCompare, Download, CheckCircle2, Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
@@ -61,6 +61,77 @@ interface Dataset {
     table_name: string;
     row_count: number;
     created_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UpdateSettings Component
+// ─────────────────────────────────────────────────────────────────────────────
+function UpdateSettings() {
+    const [checking, setChecking] = useState(false);
+    const [status, setStatus] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
+
+    const checkNow = async () => {
+        setChecking(true);
+        setStatus(null);
+        try {
+            const version = await invoke<string | null>('check_for_updates');
+            if (version) {
+                setStatus({ type: 'success', message: `Update to ${version} available! Restart to install.` });
+            } else {
+                setStatus({ type: 'info', message: "You're on the latest version." });
+            }
+        } catch (error) {
+            setStatus({ type: 'error', message: 'Could not check for updates.' });
+        }
+        setChecking(false);
+    };
+
+    return (
+        <div className="bg-card/30 border border-border/40 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Download className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium">App Updates</p>
+                        <p className="text-[10px] text-muted-foreground">Check for new versions</p>
+                    </div>
+                </div>
+                <Button
+                    onClick={checkNow}
+                    disabled={checking}
+                    variant="outline"
+                    size="sm"
+                >
+                    {checking ? (
+                        <span className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            Checking...
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1.5">
+                            <Download size={14} />
+                            Check for Updates
+                        </span>
+                    )}
+                </Button>
+            </div>
+            {status && (
+                <div className={cn(
+                    "mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs",
+                    status.type === 'success' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                    status.type === 'info' && "bg-primary/10 text-primary",
+                    status.type === 'error' && "bg-destructive/10 text-destructive"
+                )}>
+                    {status.type === 'success' && <CheckCircle2 size={14} />}
+                    {status.type === 'info' && <Info size={14} />}
+                    {status.type === 'error' && <AlertTriangle size={14} />}
+                    <span>{status.message}</span>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default function SettingsPage() {
@@ -573,6 +644,15 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         </div>
+                    </section>
+
+                    {/* ── App Updates ── */}
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Download className="w-4 h-4 text-accent" />
+                            <h2 className="text-sm font-medium">App Updates</h2>
+                        </div>
+                        <UpdateSettings />
                     </section>
 
                     {/* ── Appearance ── */}
