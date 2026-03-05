@@ -28,3 +28,4 @@ calamine = { version = "0.26", features = ["dates"] }
 rust_xlsxwriter = "0.80"
 chrono = "0.4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tauri-plugin-shell = "2.3.5"

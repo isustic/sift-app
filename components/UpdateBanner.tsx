@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Download } from "lucide-react";
 import { checkForUpdates } from "@/lib/update-check";
 
+import { open } from '@tauri-apps/plugin-shell';
+
 interface UpdateBannerProps {
   currentVersion: string;
 }
@@ -30,6 +32,16 @@ export function UpdateBanner({ currentVersion }: UpdateBannerProps) {
     return null;
   }
 
+  const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    try {
+      await open(updateInfo.downloadUrl);
+      setDismissed(true); // optionally dismiss it
+    } catch (error) {
+      console.error("Failed to open update URL", error);
+    }
+  };
+
   return (
     <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between gap-4">
       <div className="flex items-center gap-2">
@@ -41,9 +53,8 @@ export function UpdateBanner({ currentVersion }: UpdateBannerProps) {
       <div className="flex items-center gap-3">
         <a
           href={updateInfo.downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm underline hover:no-underline"
+          onClick={handleDownloadClick}
+          className="text-sm underline hover:no-underline cursor-pointer"
         >
           Download
         </a>
