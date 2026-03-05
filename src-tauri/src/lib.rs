@@ -5,11 +5,13 @@ use commands::subgroups::seed_subgroups;
 use db::{init_db, DbState};
 use std::sync::Mutex;
 use tauri::Manager;
+use tauri_plugin_updater::Builder as UpdaterBuilder;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(UpdaterBuilder::new().build())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)

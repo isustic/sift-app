@@ -39,6 +39,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
     "updater": {
       "active": true,
       "endpoints": [
