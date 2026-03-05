@@ -1,3 +1,5 @@
+'use client';
+
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
@@ -6,6 +8,9 @@ import { Sidebar } from "@/components/Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { useEffect, useState } from "react";
+import { invoke } from '@tauri-apps/api/core';
+import { UpdateDialog } from '@/components/UpdateDialog';
 
 const cormorant = Cormorant_Garamond({
     subsets: ["latin"],
@@ -39,6 +44,22 @@ export default function RootLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const [updateAvailable, setUpdateAvailable] = useState(false);
+    const [updateVersion, setUpdateVersion] = useState('');
+
+    useEffect(() => {
+        invoke<string | null>('check_for_updates')
+            .then((version) => {
+                if (version) {
+                    setUpdateVersion(version);
+                    setUpdateAvailable(true);
+                }
+            })
+            .catch((error) => {
+                console.error('Update check failed:', error);
+            });
+    }, []);
+
     return (
         <html lang="en">
             <body className={`${cormorant.variable} ${manrope.variable} ${ibmPlexMono.variable} bg-background text-foreground antialiased`}>
@@ -50,6 +71,11 @@ export default function RootLayout({
                             <main className="flex-1 overflow-auto">{children}</main>
                         </div>
                     </TooltipProvider>
+                    <UpdateDialog
+                        open={updateAvailable}
+                        version={updateVersion}
+                        onClose={() => setUpdateAvailable(false)}
+                    />
                 </ThemeProvider>
             </body>
         </html>
