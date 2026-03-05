@@ -5,6 +5,7 @@ import "@/lib/theme-init";
 import { Sidebar } from "@/components/Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 const cormorant = Cormorant_Garamond({
     subsets: ["latin"],
@@ -42,6 +43,7 @@ export default function RootLayout({
         <html lang="en">
             <body className={`${cormorant.variable} ${manrope.variable} ${ibmPlexMono.variable} bg-background text-foreground antialiased`}>
                 <ThemeProvider>
+                    <UpdateBanner currentVersion="0.1.0" />
                     <TooltipProvider>
                         <div className="flex h-screen overflow-hidden">
                             <Sidebar />
