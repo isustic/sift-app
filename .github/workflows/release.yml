@@ -18,9 +18,9 @@ jobs:
           - platform: "windows-amd64"
             os: "windows-latest"
             target: "x86_64-pc-windows-msvc"
-          # macOS (Intel)
+          # macOS (Intel) - using macos-12 which is still available
           - platform: "macos-amd64"
-            os: "macos-13-large"
+            os: "macos-12"
             target: "x86_64-apple-darwin"
           # macOS (Apple Silicon)
           - platform: "macos-arm64"
@@ -48,14 +48,12 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
+        working-directory: ./frontend
+        run: npm ci
 
       - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
+        working-directory: ./frontend
+        run: npm run build
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
