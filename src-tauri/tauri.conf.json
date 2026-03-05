@@ -38,16 +38,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "createUpdaterArtifacts": true
+    ]
   },
   "plugins": {
     "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/isustic/sift-app/releases/latest/download/latest.json"
-      ],
-      "dialog": false
+      "active": false
     }
   }
 }
