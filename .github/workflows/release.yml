@@ -46,15 +46,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    # Skip the job if it's a manual run and the user unchecked this platform
-    if: >-
-      github.event_name == 'push' || 
-      (github.event_name == 'workflow_dispatch' && (
-        (matrix.platform == 'windows' && github.event.inputs.build_windows == 'true') ||
-        (matrix.platform == 'macos' && github.event.inputs.build_macos == 'true') ||
-        (matrix.platform == 'linux' && github.event.inputs.build_linux == 'true')
-      ))
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
