@@ -5,6 +5,22 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Build for Windows (.exe / .msi)'
+        required: true
+        type: boolean
+        default: true
+      build_macos:
+        description: 'Build for macOS (.dmg / .app)'
+        required: true
+        type: boolean
+        default: true
+      build_linux:
+        description: 'Build for Linux (.AppImage / .deb)'
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -16,19 +32,28 @@ jobs:
       matrix:
         include:
           # Windows
-          - platform: "windows-amd64"
+          - platform: "windows"
             os: "windows-latest"
             target: "x86_64-pc-windows-msvc"
           # macOS (Apple Silicon)
-          - platform: "macos-arm64"
+          - platform: "macos"
             os: "macos-latest"
             target: "aarch64-apple-darwin"
           # Linux (x64)
-          - platform: "linux-amd64"
+          - platform: "linux"
             os: "ubuntu-latest"
             target: "x86_64-unknown-linux-gnu"
 
     runs-on: ${{ matrix.os }}
+
+    # Skip the job if it's a manual run and the user unchecked this platform
+    if: >-
+      github.event_name == 'push' || 
+      (github.event_name == 'workflow_dispatch' && (
+        (matrix.platform == 'windows' && github.event.inputs.build_windows == 'true') ||
+        (matrix.platform == 'macos' && github.event.inputs.build_macos == 'true') ||
+        (matrix.platform == 'linux' && github.event.inputs.build_linux == 'true')
+      ))
 
     steps:
       - name: Checkout repository
