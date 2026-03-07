@@ -93,9 +93,17 @@ export function getColumnType(column: string, columns: ColumnMeta[]): "text" | "
   const col = columns.find(c => c.name === column);
   if (!col) return "text";
 
+  const colNameLower = column.toLowerCase();
+
+  // Check for date columns FIRST (by name pattern)
+  // Supports: date, time, data (PT), fecha (ES), datum (DE), datum (NL)
+  if (colNameLower.includes("date") || colNameLower.includes("time") ||
+      colNameLower === "data" || colNameLower.includes("fecha")) {
+    return "date";
+  }
+
   const type = col.col_type.toUpperCase();
   if (type === "INTEGER" || type === "REAL") return "number";
-  if (column.toLowerCase().includes("date") || column.toLowerCase().includes("time")) return "date";
   return "text";
 }
 

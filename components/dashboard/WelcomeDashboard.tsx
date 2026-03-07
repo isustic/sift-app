@@ -2,13 +2,13 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Home, Upload, BarChart3, FileSpreadsheet, Clock, Sparkles, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { safeInvoke, safeOpen, safeListen } from "@/lib/tauri";
+
+type UnlistenFn = () => void;
 
 interface IngestProgress {
     pct: number;
@@ -25,7 +25,7 @@ export function WelcomeDashboard() {
 
     const handleFileUpload = useCallback(async () => {
         setError(null);
-        const selected = await open({
+        const selected = await safeOpen({
             filters: [{ name: "Excel File", extensions: ["xlsx"] }],
             multiple: false,
         });
@@ -36,14 +36,14 @@ export function WelcomeDashboard() {
             setRowsDone(0);
 
             // Subscribe to progress events
-            unlistenRef.current = await listen<IngestProgress>("ingest_progress", (ev) => {
+            unlistenRef.current = await safeListen<IngestProgress>("ingest_progress", (ev) => {
                 setProgress(ev.payload.pct);
                 setRowsDone(ev.payload.rows_done);
             });
 
             try {
                 const datasetName = selected.split("/").pop()?.replace(".xlsx", "") ?? "Dataset";
-                const result = await invoke<{ id: number }>("ingest_file", {
+                const result = await safeInvoke<{ id: number }>("ingest_file", {
                     path: selected,
                     datasetName,
                 });

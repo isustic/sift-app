@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { invoke } from '@tauri-apps/api/core';
 import { UpdateDialog } from '@/components/UpdateDialog';
 
 export function UpdateChecker() {
@@ -9,20 +8,27 @@ export function UpdateChecker() {
     const [updateVersion, setUpdateVersion] = useState('');
 
     useEffect(() => {
-        invoke<string | null>('check_for_updates')
-            .then((version) => {
+        const checkForUpdates = async () => {
+            try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const version = await invoke<string | null>('check_for_updates');
                 if (version) {
                     setUpdateVersion(version);
                     setUpdateAvailable(true);
                 }
-            })
-            .catch((error) => {
-                // Ignore the error if it's the specific macos one so we don't spam console
+            } catch (error) {
+                // Ignore the error if it's the specific macos one or if not in Tauri
                 if (error && typeof error === 'string' && error.includes("does not support updates")) {
                     return;
                 }
-                console.error('Update check failed:', error);
-            });
+                // Silently ignore when not in Tauri context
+                if (error && typeof error === 'string' && error.includes("Unknown command")) {
+                    return;
+                }
+            }
+        };
+
+        checkForUpdates();
     }, []);
 
     return (

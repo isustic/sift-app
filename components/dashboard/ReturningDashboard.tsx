@@ -2,9 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { getLastOpenedDataset } from "@/lib/dataset-tracking";
 import { setLastOpenedDataset } from "@/lib/dataset-tracking";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, FileSpreadsheet, BarChart3, Plus, TrendingUp, Database, Clock, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { safeInvoke, safeOpen, safeListen } from "@/lib/tauri";
+
+type UnlistenFn = () => void;
 
 interface Dataset {
     id: number;
@@ -85,7 +85,7 @@ export function ReturningDashboard({ datasets }: ReturningDashboardProps) {
 
         // Load stats
         try {
-            const statsData = await invoke<UsageStats>("get_usage_stats");
+            const statsData = await safeInvoke<UsageStats>("get_usage_stats");
             setStats(statsData);
         } catch (err) {
             console.error("Failed to load stats:", err);
@@ -116,7 +116,7 @@ export function ReturningDashboard({ datasets }: ReturningDashboardProps) {
 
     const handleUpload = useCallback(async () => {
         setUploadError(null);
-        const selected = await open({
+        const selected = await safeOpen({
             filters: [{ name: "Excel File", extensions: ["xlsx"] }],
             multiple: false,
         });
@@ -127,14 +127,14 @@ export function ReturningDashboard({ datasets }: ReturningDashboardProps) {
             setRowsDone(0);
 
             // Subscribe to progress events
-            unlistenRef.current = await listen<IngestProgress>("ingest_progress", (ev) => {
+            unlistenRef.current = await safeListen<IngestProgress>("ingest_progress", (ev) => {
                 setProgress(ev.payload.pct);
                 setRowsDone(ev.payload.rows_done);
             });
 
             try {
                 const datasetName = selected.split("/").pop()?.replace(".xlsx", "") ?? "Dataset";
-                const result = await invoke<{ id: number }>("ingest_file", {
+                const result = await safeInvoke<{ id: number }>("ingest_file", {
                     path: selected,
                     datasetName,
                 });

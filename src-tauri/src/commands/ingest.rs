@@ -3,7 +3,7 @@ use crate::db::{
     DbState,
 };
 use calamine::{open_workbook, Data, Reader, Xlsx};
-use chrono::Utc;
+use chrono::{Utc, NaiveDate, Datelike};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
@@ -32,15 +32,59 @@ fn to_table_name(name: &str, id_hint: &str) -> String {
     format!("ds_{}_{}", base, id_hint)
 }
 
+/// Convert Excel serial date to YYYYMMDD format.
+/// Excel dates are stored as days since January 1, 1900 (with Excel's leap year bug).
+/// Note: Excel incorrectly treats 1900 as a leap year, so we need to account for that.
+fn excel_serial_to_yyyymmdd(excel_date: f64) -> String {
+    // Excel epoch is January 1, 1900
+    // Excel serial 1 = January 1, 1900
+    // Excel has a bug where it treats 1900 as a leap year (it wasn't)
+    // So we subtract 2 days to correct for this bug when converting
+
+    if excel_date < 1.0 {
+        return String::new(); // Invalid Excel date
+    }
+
+    // Excel's epoch with bug correction: subtract 2 days
+    let days_since_epoch = excel_date as i64 - 2;
+
+    // Calculate date from epoch
+    // January 1, 1900 as NaiveDate
+    if let Some(excel_epoch) = NaiveDate::from_ymd_opt(1900, 1, 1) {
+        if let Some(date) = excel_epoch.checked_add_signed(chrono::Duration::days(days_since_epoch)) {
+            return format!("{:04}{:02}{:02}", date.year(), date.month(), date.day());
+        }
+    }
+
+    // Fallback: return as-is
+    excel_date.to_string()
+}
+
 fn cell_to_string(cell: &Data) -> String {
     match cell {
         Data::Empty => String::new(),
         Data::String(s) | Data::DateTimeIso(s) | Data::DurationIso(s) => s.clone(),
-        Data::Float(f) => f.to_string(),
+        Data::Float(f) => {
+            // Check if this looks like an Excel date (between reasonable Excel date range)
+            // Excel dates typically range from 1 (1900-01-01) to ~60000 (2078-12-31)
+            if *f >= 1.0 && *f < 100000.0 && f.fract() == 0.0 {
+                // This might be an Excel serial date - convert to YYYYMMDD
+                excel_serial_to_yyyymmdd(*f)
+            } else if f.fract() == 0.0 && f.abs() < (i64::MAX as f64) {
+                // Format without trailing decimal for whole numbers
+                (*f as i64).to_string()
+            } else {
+                f.to_string()
+            }
+        }
         Data::Int(i) => i.to_string(),
         Data::Bool(b) => b.to_string(),
         Data::Error(e) => format!("{e:?}"),
-        Data::DateTime(f) => f.to_string(),
+        Data::DateTime(dt) => {
+            // Convert Excel datetime to YYYYMMDD (ignore time part)
+            // dt is an ExcelDateTime which can be converted to f64
+            excel_serial_to_yyyymmdd(dt.as_f64())
+        }
     }
 }
 

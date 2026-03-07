@@ -8,7 +8,7 @@ import {
     GitCompare, Download, CheckCircle2, Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { invoke } from "@tauri-apps/api/core";
+import { safeInvoke } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, X } from "lucide-react";
@@ -74,7 +74,7 @@ function UpdateSettings() {
         setChecking(true);
         setStatus(null);
         try {
-            const version = await invoke<string | null>('check_for_updates');
+            const version = await safeInvoke<string | null>('check_for_updates');
             if (version) {
                 setStatus({ type: 'success', message: `Update to ${version} available! Restart to install.` });
             } else {
@@ -166,11 +166,11 @@ export default function SettingsPage() {
     const loadAnalytics = async () => {
         try {
             const [statsData, activityData, historyData, favoritesData, datasetsData] = await Promise.all([
-                invoke<UsageStats>("get_usage_stats"),
-                invoke<ActivityDay[]>("get_activity_heatmap", { days: 90 }),
-                invoke<QueryEntry[]>("get_query_history", { limit: 10 }),
-                invoke<Favorite[]>("get_favorites"),
-                invoke<Dataset[]>("list_datasets"),
+                safeInvoke<UsageStats>("get_usage_stats"),
+                safeInvoke<ActivityDay[]>("get_activity_heatmap", { days: 90 }),
+                safeInvoke<QueryEntry[]>("get_query_history", { limit: 10 }),
+                safeInvoke<Favorite[]>("get_favorites"),
+                safeInvoke<Dataset[]>("list_datasets"),
             ]);
             setStats(statsData);
             setActivity(activityData);
@@ -191,7 +191,7 @@ export default function SettingsPage() {
 
         setIsDeleting(datasetId);
         try {
-            await invoke("delete_dataset", { datasetId });
+            await safeInvoke("delete_dataset", { datasetId });
             setDatasets((prev) => prev.filter((d) => d.id !== datasetId));
         } catch (error) {
             console.error("Failed to delete dataset:", error);
@@ -211,7 +211,7 @@ export default function SettingsPage() {
         if (!trimmedName) return;
 
         try {
-            await invoke("rename_dataset", { datasetId, newName: trimmedName });
+            await safeInvoke("rename_dataset", { datasetId, newName: trimmedName });
             setDatasets((prev) =>
                 prev.map((d) => (d.id === datasetId ? { ...d, name: trimmedName } : d))
             );
@@ -231,7 +231,7 @@ export default function SettingsPage() {
 
     const handleRemoveFavorite = async (id: number) => {
         try {
-            await invoke("remove_favorite", { favoriteId: id });
+            await safeInvoke("remove_favorite", { favoriteId: id });
             setFavorites((prev) => prev.filter((f) => f.id !== id));
         } catch (error) {
             console.error("Failed to remove favorite:", error);

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { WelcomeDashboard } from "@/components/dashboard/WelcomeDashboard";
 import { ReturningDashboard } from "@/components/dashboard/ReturningDashboard";
+import { safeInvoke } from "@/lib/tauri";
 
 interface Dataset {
     id: number;
@@ -24,10 +24,11 @@ export default function HomePage() {
 
     const loadDatasets = async () => {
         try {
-            const data = await invoke<Dataset[]>("list_datasets");
+            const data = await safeInvoke<Dataset[]>("list_datasets");
             setDatasets(data);
         } catch (err) {
-            console.error("Failed to load datasets:", err);
+            // Not in Tauri or command failed - show welcome screen
+            console.log("Running in browser mode or command failed:", err);
         } finally {
             setLoading(false);
         }

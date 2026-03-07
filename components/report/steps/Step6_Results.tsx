@@ -271,12 +271,58 @@ export function Step6_Results({
     setShowSaveDialog(true)
   }
 
-  const formatValue = (value: unknown): string => {
+  const formatValue = (value: unknown, columnName?: string): string => {
     if (value === null || value === undefined) return ""
+
+    // Check if this is a date column (by name pattern)
+    const isDateColumn = columnName && (
+      columnName.toLowerCase().includes("date") ||
+      columnName.toLowerCase().includes("time") ||
+      columnName.toLowerCase() === "data"
+    )
+
+    // Format YYYYMMDD integers as readable dates
     if (typeof value === "number") {
-      // Format numbers with thousand separators
-      return value.toLocaleString()
+      const dateStr = value.toString()
+
+      // Check if this looks like a YYYYMMDD date (8 digits, valid range)
+      if (isDateColumn || (value >= 19000101 && value <= 21000101 && dateStr.length === 8)) {
+        const year = dateStr.substring(0, 4)
+        const month = dateStr.substring(4, 6)
+        const day = dateStr.substring(6, 8)
+        // Format as YYYY-MM-DD
+        return `${year}-${month}-${day}`
+      }
+
+      // Check if this looks like an Excel serial date (1-100000 range)
+      if (isDateColumn && value >= 1 && value < 100000) {
+        // Convert Excel serial to JavaScript Date
+        // Excel epoch: January 1, 1900 (serial 1)
+        // Excel has a bug treating 1900 as leap year, so subtract 2 days
+        const excelEpoch = new Date(1900, 0, 1)
+        const daysSinceEpoch = value - 2
+        const date = new Date(excelEpoch.getTime() + daysSinceEpoch * 24 * 60 * 60 * 1000)
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
+      // Return numbers as plain string (no commas)
+      return dateStr
     }
+
+    // Also check string values that might be YYYYMMDD
+    if (typeof value === "string") {
+      const num = parseInt(value, 10)
+      if (!isNaN(num) && num >= 19000101 && num <= 21000101 && value.length === 8) {
+        const year = value.substring(0, 4)
+        const month = value.substring(4, 6)
+        const day = value.substring(6, 8)
+        return `${year}-${month}-${day}`
+      }
+    }
+
     return String(value)
   }
 
@@ -368,7 +414,7 @@ export function Step6_Results({
                       </td>
                       {columns.map((col) => (
                         <td key={col} className="px-3 py-2 min-w-[120px] whitespace-nowrap">
-                          {formatValue(row[col])}
+                          {formatValue(row[col], col)}
                         </td>
                       ))}
                     </tr>

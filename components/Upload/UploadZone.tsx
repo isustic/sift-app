@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Upload, FolderOpen, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { safeInvoke, safeOpen, safeListen } from "@/lib/tauri";
+
+type UnlistenFn = () => void;
 
 interface IngestProgress {
     pct: number;
@@ -35,14 +35,14 @@ export function UploadZone({ onSuccess, compact = false }: UploadZoneProps) {
         setError(null);
 
         // Subscribe to progress events
-        unlistenRef.current = await listen<IngestProgress>("ingest_progress", (ev) => {
+        unlistenRef.current = await safeListen<IngestProgress>("ingest_progress", (ev) => {
             setProgress(ev.payload.pct);
             setRowsDone(ev.payload.rows_done);
         });
 
         try {
             const datasetName = filePath.split("/").pop()?.replace(".xlsx", "") ?? "Dataset";
-            const result = await invoke<{ id: number }>("ingest_file", {
+            const result = await safeInvoke<{ id: number }>("ingest_file", {
                 path: filePath,
                 datasetName,
             });
@@ -60,7 +60,7 @@ export function UploadZone({ onSuccess, compact = false }: UploadZoneProps) {
 
     // Upload button: native OS file picker
     const handleOpenDialog = async () => {
-        const selected = await open({
+        const selected = await safeOpen({
             filters: [{ name: "Excel File", extensions: ["xlsx"] }],
             multiple: false,
         });

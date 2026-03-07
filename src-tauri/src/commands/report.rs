@@ -7,10 +7,11 @@
 //! All column names are validated against the database whitelist (columns metadata table)
 //! before being used in SQL queries to prevent injection.
 
-use crate::commands::queries::SimpleQuery;
+use crate::commands::queries::{SimpleQuery, FilterValue};
 use crate::db::{DbState, schema::sanitize_col_name};
 use rusqlite::params;
 use std::time::Instant;
+use std::collections::HashMap;
 use tauri::State;
 
 /// Returns all valid column names for a given dataset (used for whitelisting).
@@ -24,6 +25,23 @@ fn get_valid_columns(conn: &rusqlite::Connection, dataset_id: i64) -> Result<Vec
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| e.to_string())?;
     Ok(names)
+}
+
+/// Returns a map of column names to their types for a given dataset.
+/// Used to properly type filter values when binding to SQL.
+fn get_column_types(conn: &rusqlite::Connection, dataset_id: i64) -> Result<HashMap<String, String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT name, col_type FROM columns WHERE dataset_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let mut map = HashMap::new();
+    let rows = stmt
+        .query_map(params![dataset_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(|e| e.to_string())?;
+    for row in rows {
+        let (name, col_type) = row.map_err(|e| e.to_string())?;
+        map.insert(name, col_type);
+    }
+    Ok(map)
 }
 
 /// Validates that a column name exists in the allowed set.
@@ -59,6 +77,13 @@ pub fn run_report(
     db: State<'_, DbState>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let start_time = Instant::now();
+
+    // DEBUG: Log the incoming query
+    eprintln!("🔍 DEBUG run_report - filters count: {}", query.filters.len());
+    for (i, f) in query.filters.iter().enumerate() {
+        eprintln!("  Filter {}: column='{}', operator='{}', value='{}'", i, f.column, f.operator, f.value);
+    }
+
     let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
 
     // Get the table name for this dataset
@@ -72,13 +97,15 @@ pub fn run_report(
 
     // Get whitelist of valid columns for this dataset
     let valid_cols = get_valid_columns(&conn, query.dataset_id)?;
+    // Get column types for proper filter value binding
+    let column_types = get_column_types(&conn, query.dataset_id)?;
     let safe_table = sanitize_col_name(&table_name);
 
     // Determine if this is a grouped query
     let is_grouped = !query.group_by.is_empty();
 
     let mut sql: String;
-    let mut bind_values: Vec<String> = Vec::new();
+    let mut bind_values: Vec<FilterValue> = Vec::new();
 
     if is_grouped {
         // Grouped query: SELECT group_by + calculations, GROUP BY group_by
@@ -124,7 +151,9 @@ pub fn run_report(
             }
             let placeholder = format!("?{}", bind_values.len() + 1);
             where_parts.push(format!("\"{safe_col}\" {} {placeholder}", op));
-            bind_values.push(filter.transform_value());
+            // Get column type for proper value conversion
+            let col_type = column_types.get(&safe_col).map(|s| s.as_str()).unwrap_or("TEXT");
+            bind_values.push(filter.to_filter_value(col_type));
         }
 
         if !where_parts.is_empty() {
@@ -189,7 +218,9 @@ pub fn run_report(
             }
             let placeholder = format!("?{}", bind_values.len() + 1);
             where_parts.push(format!("\"{safe_col}\" {} {placeholder}", op));
-            bind_values.push(filter.transform_value());
+            // Get column type for proper value conversion
+            let col_type = column_types.get(&safe_col).map(|s| s.as_str()).unwrap_or("TEXT");
+            bind_values.push(filter.to_filter_value(col_type));
         }
 
         if !where_parts.is_empty() {
@@ -210,6 +241,10 @@ pub fn run_report(
             sql.push_str(&format!(" LIMIT {}", limit));
         }
     }
+
+    // DEBUG: Log the SQL and bind values
+    eprintln!("🔍 DEBUG SQL: {}", sql);
+    eprintln!("🔍 DEBUG bind values: {:?}", bind_values);
 
     // Execute query with parameterized values
     let mut stmt = conn.prepare(&sql).map_err(|e| format!("SQL error: {e}"))?;
