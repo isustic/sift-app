@@ -7,8 +7,8 @@ use crate::db::schema::sanitize_col_name;
 pub struct TrendsConfig {
     pub date_column: String,
     pub value_column: String,
-    pub period: String, // "daily", "weekly", "monthly", "quarterly", "yearly"
-    pub aggregation: String, // "sum", "avg", "count"
+    pub period: String,
+    pub aggregation: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -35,26 +35,10 @@ pub fn run_trends_query(
 ) -> Result<TrendsResult, String> {
     let conn = state.0.lock().unwrap();
 
-    // Get dataset table name
     let table_name: String = conn
-        .query_row(
-            "SELECT table_name FROM datasets WHERE id = ?",
-            [dataset_id],
-            |row| row.get(0),
-        )
+        .query_row("SELECT table_name FROM datasets WHERE id = ?", [dataset_id], |row| row.get(0))
         .map_err(|e| format!("Dataset not found: {}", e))?;
 
-    // Build the strftime format based on period
-    let strftime_format = match config.period.as_str() {
-        "daily" => "%Y-%m-%d",
-        "weekly" => "%Y-W%W",
-        "monthly" => "%Y-%m",
-        "quarterly" => "%Y-Q",
-        "yearly" => "%Y",
-        _ => "%Y-%m",
-    };
-
-    // Build aggregation SQL
     let agg_sql = match config.aggregation.as_str() {
         "avg" => "AVG",
         "count" => "COUNT",
@@ -64,36 +48,54 @@ pub fn run_trends_query(
     let safe_date_col = sanitize_col_name(&config.date_column);
     let safe_value_col = sanitize_col_name(&config.value_column);
 
-    let sql = format!(
-        "SELECT strftime('{}', {}) AS period, {}({}) AS value \
-         FROM {} \
-         WHERE {} IS NOT NULL \
-         GROUP BY period \
-         ORDER BY period ASC",
-        strftime_format, safe_date_col, agg_sql, safe_value_col, table_name, safe_value_col
-    );
+    // Build SQL based on period - convert Excel dates and extract month/year
+    // Excel offset 25568 converts to proper dates
+    let sql = match config.period.as_str() {
+        "daily" => format!(
+            "SELECT date(({} - 25568) * 86400, 'unixepoch') AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
+        "monthly" => format!(
+            "SELECT strftime('%Y-%m', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
+        "yearly" => format!(
+            "SELECT strftime('%Y', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
+        _ => format!(
+            "SELECT strftime('%Y-%m', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
+    };
 
-    let mut stmt = conn
-        .prepare(&sql)
-        .map_err(|e| format!("Query preparation failed: {}", e))?;
+    let mut stmt = conn.prepare(&sql).map_err(|e| format!("SQL error: {}", e))?;
 
-    let rows: Vec<(String, f64)> = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?)))
-        .map_err(|e| format!("Query execution failed: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Row parsing failed: {}", e))?;
+    let mut periods = Vec::new();
+    let mut values = Vec::new();
 
-    let periods: Vec<String> = rows.iter().map(|(p, _)| p.clone()).collect();
-    let values: Vec<f64> = rows.iter().map(|(_, v)| *v).clone().collect();
+    let mut rows = stmt.query([]).map_err(|e| format!("Query error: {}", e))?;
+    while let Some(row) = rows.next().map_err(|e| format!("Row error: {}", e))? {
+        let period: String = row.get(0).map_err(|e| format!("Period error: {}", e))?;
+        let value: f64 = row.get(1).unwrap_or(0.0);
+        periods.push(period);
+        values.push(value);
+    }
 
-    // Calculate metrics
     let total: f64 = values.iter().sum();
     let count = values.len() as f64;
     let avg = if count > 0.0 { total / count } else { 0.0 };
     let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
     let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
-    // Calculate growth (compare last to first, or last to previous)
     let growth = if values.len() >= 2 {
         let first = values[0];
         let last = values[values.len() - 1];

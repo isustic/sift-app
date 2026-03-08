@@ -120,10 +120,8 @@ export function ResultsGrid({ data, columns }: ResultsGridProps) {
             // Export filtered data if search is active, otherwise all data
             const dataToExport = searchQuery.trim() ? filteredData : data;
             await invoke("export_report", {
-                data: dataToExport.map((row) => ({
-                    cells: columns.map((col) => String(row[col] ?? ""))
-                })),
-                path: `analysis_export_${Date.now()}.xlsx`
+                rows: dataToExport,
+                columns: columns,
             });
         } catch (error) {
             console.error("Export failed:", error);

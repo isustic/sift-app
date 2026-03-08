@@ -1,6 +1,6 @@
 [package]
 name = "sift"
-version = "0.1.0"
+version = "1.0.7"
 description = "Sales & Reporting App"
 authors = ["you"]
 license = ""

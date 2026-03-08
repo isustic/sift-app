@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Play, LoaderIcon, AlertCircleIcon } from "lucide-react";
@@ -31,6 +31,17 @@ interface TrendsResult {
     };
 }
 
+// Format period strings - backend now handles Excel date conversion
+function formatPeriod(period: string): string {
+    // Backend should return YYYY-MM format, just validate and return
+    if (/^\d{4}-\d{2}$/.test(period)) {
+        return period;
+    }
+
+    // Fallback for unexpected formats
+    return period;
+}
+
 export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
     const [dateColumn, setDateColumn] = useState<string>("");
     const [valueColumn, setValueColumn] = useState<string>("");
@@ -40,8 +51,24 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const dateColumns = columns.filter((c) => c.toLowerCase().includes("date") || c.toLowerCase().includes("time"));
-    const numericColumns = columns.filter((c) => !dateColumns.includes(c));
+    // Format periods for display
+    const formattedData = useMemo(() => {
+        if (!result) return null;
+        return {
+            ...result,
+            periods: result.periods.map(formatPeriod)
+        };
+    }, [result]);
+
+    // Show all columns - let user decide which is date vs value
+    // Sort columns with date/time hints first for convenience
+    const allColumns = [...columns].sort((a, b) => {
+        const aIsDate = a.toLowerCase().includes("date") || a.toLowerCase().includes("time");
+        const bIsDate = b.toLowerCase().includes("date") || b.toLowerCase().includes("time");
+        if (aIsDate && !bIsDate) return -1;
+        if (!aIsDate && bIsDate) return 1;
+        return a.localeCompare(b);
+    });
 
     const handleRun = async () => {
         if (!dateColumn || !valueColumn) return;
@@ -53,12 +80,16 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
             const res = await invoke<TrendsResult>("run_trends_query", {
                 datasetId,
                 config: {
-                    dateColumn,
-                    valueColumn,
+                    date_column: dateColumn,
+                    value_column: valueColumn,
                     period,
                     aggregation,
                 },
             });
+            console.log("=== TRENDS RAW RESULT ===");
+            console.log("Periods:", res.periods);
+            console.log("Values:", res.values);
+            console.log("==========================");
             setResult(res);
         } catch (err) {
             console.error("Trends query failed:", err);
@@ -81,7 +112,7 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                             <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {dateColumns.map((c) => (
+                            {allColumns.map((c) => (
                                 <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
                         </SelectContent>
@@ -95,7 +126,7 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                             <SelectValue placeholder="Select..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {numericColumns.map((c) => (
+                            {allColumns.map((c) => (
                                 <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
                         </SelectContent>
@@ -161,13 +192,13 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
             )}
 
             {/* Results */}
-            {!isLoading && result && (
+            {!isLoading && formattedData && (
                 <div className="space-y-4">
                     {/* Chart */}
                     <div className="bg-card/30 border border-border/40 rounded-xl p-4">
                         <h3 className="text-xs font-medium text-muted-foreground mb-3">Trend</h3>
                         <div className="flex justify-center">
-                            <SparklineChart data={result.values} width={400} height={100} />
+                            <SparklineChart data={formattedData.values} width={400} height={100} />
                         </div>
                     </div>
 
@@ -175,20 +206,20 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                     <div className="grid grid-cols-4 gap-4">
                         <div className="bg-card/30 border border-border/40 rounded-xl p-4">
                             <p className="text-[10px] text-muted-foreground">Total</p>
-                            <p className="text-lg font-semibold">{result.metrics.total.toLocaleString()}</p>
+                            <p className="text-lg font-semibold">{formattedData.metrics.total.toLocaleString()}</p>
                         </div>
                         <div className="bg-card/30 border border-border/40 rounded-xl p-4">
                             <p className="text-[10px] text-muted-foreground">Average</p>
-                            <p className="text-lg font-semibold">{result.metrics.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                            <p className="text-lg font-semibold">{formattedData.metrics.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                         </div>
                         <div className="bg-card/30 border border-border/40 rounded-xl p-4">
                             <p className="text-[10px] text-muted-foreground">Min / Max</p>
-                            <p className="text-lg font-semibold">{result.metrics.min} / {result.metrics.max}</p>
+                            <p className="text-lg font-semibold">{formattedData.metrics.min} / {formattedData.metrics.max}</p>
                         </div>
                         <div className="bg-card/30 border border-border/40 rounded-xl p-4">
                             <p className="text-[10px] text-muted-foreground">Growth</p>
-                            <p className={`text-lg font-semibold ${result.metrics.growth >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                {result.metrics.growth >= 0 ? "+" : ""}{result.metrics.growth.toFixed(1)}%
+                            <p className={`text-lg font-semibold ${formattedData.metrics.growth >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                {formattedData.metrics.growth >= 0 ? "+" : ""}{formattedData.metrics.growth.toFixed(1)}%
                             </p>
                         </div>
                     </div>
@@ -204,12 +235,12 @@ export function TrendsBuilder({ datasetId, columns }: TrendsBuilderProps) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {result.periods.map((period, i) => (
+                                {formattedData.periods.map((period, i) => (
                                     <tr key={i} className="border-t border-border/20">
                                         <td className="px-4 py-2">{period}</td>
-                                        <td className="px-4 py-2 text-right">{result.values[i]?.toLocaleString()}</td>
-                                        <td className={`px-4 py-2 text-right ${i > 0 && result.values[i] >= result.values[i-1] ? "text-green-500" : "text-red-500"}`}>
-                                            {i > 0 ? ((result.values[i] - result.values[i-1]) / result.values[i-1] * 100).toFixed(1) + "%" : "-"}
+                                        <td className="px-4 py-2 text-right">{formattedData.values[i]?.toLocaleString()}</td>
+                                        <td className={`px-4 py-2 text-right ${i > 0 && formattedData.values[i] >= formattedData.values[i-1] ? "text-green-500" : "text-red-500"}`}>
+                                            {i > 0 ? ((formattedData.values[i] - formattedData.values[i-1]) / formattedData.values[i-1] * 100).toFixed(1) + "%" : "-"}
                                         </td>
                                     </tr>
                                 ))}
