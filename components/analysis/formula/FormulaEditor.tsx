@@ -8,6 +8,7 @@ import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon
 import { FunctionReference } from "./FunctionReference";
 import { FormulaAutocomplete, AutocompleteItem } from "./FormulaAutocomplete";
 import { FormulaTemplates } from "./FormulaTemplates";
+import { useFormulaValidation } from "./useFormulaValidation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FormulaEditorProps {
@@ -37,6 +38,9 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Live syntax validation
+    const { validation, isValidating } = useFormulaValidation(datasetId, formula);
 
     // Autocomplete state
     const [autocomplete, setAutocomplete] = useState<{
@@ -287,11 +291,32 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             disabled={isLoading}
                             className="w-full h-32 px-3 py-2 border border-border/40 rounded-lg text-sm font-mono bg-background resize-none disabled:opacity-50"
                         />
+                        {/* Validation Status Indicator */}
+                        {formula.trim() && (
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                {isValidating ? (
+                                    <>
+                                        <LoaderIcon className="h-3 w-3 animate-spin" />
+                                        <span>Checking syntax...</span>
+                                    </>
+                                ) : validation.isValid ? (
+                                    <>
+                                        <span className="text-green-500">✓</span>
+                                        <span>Syntax OK</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-yellow-500">⚠</span>
+                                        <span>{validation.error?.split(":").pop()?.trim().substring(0, 50)}...</span>
+                                    </>
+                                )}
+                            </div>
+                        )}
                         <p className="text-[10px] text-muted-foreground">
                             💡 Tip: Press Ctrl+Space for autocomplete. Select text and click a function to wrap it, or click function then insert columns inside parentheses.
                         </p>
                         <div className="flex gap-2">
-                            <Button onClick={handleTest} size="sm" disabled={!formula.trim() || isLoading}>
+                            <Button onClick={handleTest} size="sm" disabled={!formula.trim() || isLoading || !validation.isValid || isValidating}>
                                 {isLoading ? (
                                     <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
                                 ) : (
