@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon, Calculator } from "lucide-react";
 import { FunctionReference } from "./FunctionReference";
+import { FormulaAutocomplete, AutocompleteItem } from "./FormulaAutocomplete";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FormulaEditorProps {
@@ -35,6 +36,13 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Autocomplete state
+    const [autocomplete, setAutocomplete] = useState<{
+        show: boolean;
+        query: string;
+        position: { top: number; left: number };
+    }>({ show: false, query: "", position: { top: 0, left: 0 } });
 
     const loadFormulas = async () => {
         setIsLoadingFormulas(true);
@@ -166,6 +174,65 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
         }
     };
 
+    const handleAutocompleteTrigger = () => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const text = formula.substring(0, start);
+
+        // Find the word being typed
+        const match = text.match(/(\w+)$/);
+        if (match && match[1].length >= 1) {
+            const rect = textarea.getBoundingClientRect();
+            setAutocomplete({
+                show: true,
+                query: match[1],
+                position: {
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX
+                }
+            });
+        } else {
+            setAutocomplete(prev => ({ ...prev, show: false }));
+        }
+    };
+
+    const handleAutocompleteSelect = (item: AutocompleteItem) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const text = formula.substring(0, start);
+
+        // Find and replace the word being typed
+        const beforeCursor = text.replace(/\w+$/, "");
+        const afterCursor = formula.substring(start);
+        const newFormula = beforeCursor + item.name + afterCursor;
+
+        setFormula(newFormula);
+        setAutocomplete({ show: false, query: "", position: { top: 0, left: 0 } });
+
+        // Focus textarea
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(beforeCursor.length + item.name.length, beforeCursor.length + item.name.length);
+        }, 0);
+    };
+
+    // Global keydown listener for Ctrl+Space
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key === " ") {
+                e.preventDefault();
+                handleAutocompleteTrigger();
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [formula]);
+
     return (
         <div className="space-y-4">
             {/* Error Display */}
@@ -203,7 +270,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             className="w-full h-32 px-3 py-2 border border-border/40 rounded-lg text-sm font-mono bg-background resize-none disabled:opacity-50"
                         />
                         <p className="text-[10px] text-muted-foreground">
-                            💡 Tip: Select text and click a function to wrap it, or click function then insert columns inside parentheses.
+                            💡 Tip: Press Ctrl+Space for autocomplete. Select text and click a function to wrap it, or click function then insert columns inside parentheses.
                         </p>
                         <div className="flex gap-2">
                             <Button onClick={handleTest} size="sm" disabled={!formula.trim() || isLoading}>
@@ -338,6 +405,17 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Autocomplete */}
+            {autocomplete.show && (
+                <FormulaAutocomplete
+                    query={autocomplete.query}
+                    columns={columns}
+                    onSelect={handleAutocompleteSelect}
+                    onClose={() => setAutocomplete(prev => ({ ...prev, show: false }))}
+                    position={autocomplete.position}
+                />
+            )}
         </div>
     );
 }
