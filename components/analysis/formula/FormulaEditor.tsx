@@ -177,11 +177,12 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
 
     const handleTemplateSelect = (templateFormula: string) => {
         setFormula(templateFormula);
-        // Highlight first placeholder for replacement
+        // Highlight first placeholder for replacement (lowercase words in the formula)
         setTimeout(() => {
             const textarea = textareaRef.current;
             if (textarea) {
-                const match = templateFormula.match(/[a-z_]+/i);
+                // Match lowercase words/underscores (placeholders) but not function names (uppercase)
+                const match = templateFormula.match(/\b[a-z_][a-z0-9_]*\b/);
                 if (match) {
                     const start = templateFormula.indexOf(match[0]);
                     textarea.focus();
