@@ -82,7 +82,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             setPreview(res);
             setSuccessMessage("Formula test successful!");
             setTimeout(() => setSuccessMessage(null), 3000);
-        } catch (_err) {
+        } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Formula test failed: ${errorMessage}. Please check your syntax and try again.`);
             setPreview(null);
@@ -110,7 +110,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             setSuccessMessage("Formula saved successfully!");
             setTimeout(() => setSuccessMessage(null), 3000);
             loadFormulas();
-        } catch (_err) {
+        } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Failed to save formula: ${errorMessage}. Please try again.`);
         } finally {
