@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon, Calculator } from "lucide-react";
 import { FunctionReference } from "./FunctionReference";
 import { FormulaAutocomplete, AutocompleteItem } from "./FormulaAutocomplete";
+import { FormulaTemplates } from "./FormulaTemplates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FormulaEditorProps {
@@ -172,6 +173,22 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
         } else {
             setFormula((f) => f + fn + "()");
         }
+    };
+
+    const handleTemplateSelect = (templateFormula: string) => {
+        setFormula(templateFormula);
+        // Highlight first placeholder for replacement
+        setTimeout(() => {
+            const textarea = textareaRef.current;
+            if (textarea) {
+                const match = templateFormula.match(/[a-z_]+/i);
+                if (match) {
+                    const start = templateFormula.indexOf(match[0]);
+                    textarea.focus();
+                    textarea.setSelectionRange(start, start + match[0].length);
+                }
+            }
+        }, 0);
     };
 
     const handleAutocompleteTrigger = () => {
@@ -358,6 +375,9 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             ))}
                         </div>
                     </div>
+
+                    {/* Quick Templates */}
+                    <FormulaTemplates onSelect={handleTemplateSelect} />
 
                     {/* Saved Formulas */}
                     <div className="bg-card/30 border border-border/40 rounded-xl p-3">
