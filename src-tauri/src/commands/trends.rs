@@ -57,11 +57,23 @@ pub fn run_trends_query(
              GROUP BY period ORDER BY period ASC",
             safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
         ),
+        "weekly" => format!(
+            "SELECT strftime('%Y-W%W', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
         "monthly" => format!(
             "SELECT strftime('%Y-%m', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
              FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
             safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+        ),
+        "quarterly" => format!(
+            "SELECT strftime('%Y-Q', date(({} - 25568) * 86400, 'unixepoch')) || CAST((CAST(strftime('%m', date(({} - 25568) * 86400, 'unixepoch')) AS INTEGER) - 1) / 3 + 1 AS TEXT) AS period, {}({}) AS value \
+             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+             GROUP BY period ORDER BY period ASC",
+            safe_date_col, safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
         ),
         "yearly" => format!(
             "SELECT strftime('%Y', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \

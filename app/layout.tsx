@@ -44,7 +44,7 @@ export default function RootLayout({
         <html lang="en">
             <body className={`${cormorant.variable} ${manrope.variable} ${ibmPlexMono.variable} bg-background text-foreground antialiased`}>
                 <ThemeProvider>
-                    <UpdateBanner currentVersion="1.0.7" />
+                    <UpdateBanner currentVersion="1.0.8" />
                     <TooltipProvider>
                         <div className="flex h-screen overflow-hidden">
                             <Sidebar />
