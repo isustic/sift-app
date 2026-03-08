@@ -193,11 +193,11 @@ const templates: FormulaTemplate[] = [
 const categories = ["Metrics", "Math", "Date", "Text", "Logic"];
 
 const categoryIcons: Record<string, string> = {
-    Metrics: "",
-    Math: "",
-    Date: "",
-    Text: "",
-    Logic: "",
+    Metrics: "📈",
+    Math: "🧮",
+    Date: "📅",
+    Text: "📝",
+    Logic: "🧠",
 };
 
 interface FormulaTemplatesProps {
