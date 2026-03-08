@@ -8,6 +8,7 @@ import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon
 import { FunctionReference } from "./FunctionReference";
 import { FormulaAutocomplete, AutocompleteItem } from "./FormulaAutocomplete";
 import { FormulaTemplates } from "./FormulaTemplates";
+import { FormulaBuilder } from "./FormulaBuilder";
 import { useFormulaValidation } from "./useFormulaValidation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -30,6 +31,7 @@ type FormulaPreview =
 export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     const [name, setName] = useState("");
     const [formula, setFormula] = useState("");
+    const [mode, setMode] = useState<"code" | "builder">("code");
     const [formulas, setFormulas] = useState<SavedFormula[]>([]);
     const [preview, setPreview] = useState<FormulaPreview>(null);
     const [selectedFormula, setSelectedFormula] = useState<SavedFormula | null>(null);
@@ -283,14 +285,47 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                             onChange={(e) => setName(e.target.value)}
                             disabled={isLoading}
                         />
-                        <textarea
-                            ref={textareaRef}
-                            placeholder="Enter formula (e.g., AVG(Sales) - SUM(Expenses))"
-                            value={formula}
-                            onChange={(e) => setFormula(e.target.value)}
-                            disabled={isLoading}
-                            className="w-full h-32 px-3 py-2 border border-border/40 rounded-lg text-sm font-mono bg-background resize-none disabled:opacity-50"
-                        />
+
+                        {/* Mode Toggle */}
+                        <div className="flex gap-1 p-1 bg-muted/30 rounded-lg">
+                            <button
+                                onClick={() => setMode("code")}
+                                className={`px-3 py-1 text-xs rounded transition-colors ${
+                                    mode === "code"
+                                        ? "bg-background shadow-sm"
+                                        : "hover:bg-background/50"
+                                }`}
+                            >
+                                ⚡ Code
+                            </button>
+                            <button
+                                onClick={() => setMode("builder")}
+                                className={`px-3 py-1 text-xs rounded transition-colors ${
+                                    mode === "builder"
+                                        ? "bg-background shadow-sm"
+                                        : "hover:bg-background/50"
+                                }`}
+                            >
+                                🧩 Builder
+                            </button>
+                        </div>
+
+                        {mode === "code" ? (
+                            <textarea
+                                ref={textareaRef}
+                                placeholder="Enter formula (e.g., AVG(Sales) - SUM(Expenses))"
+                                value={formula}
+                                onChange={(e) => setFormula(e.target.value)}
+                                disabled={isLoading}
+                                className="w-full h-32 px-3 py-2 border border-border/40 rounded-lg text-sm font-mono bg-background resize-none disabled:opacity-50"
+                            />
+                        ) : (
+                            <FormulaBuilder
+                                columns={columns}
+                                onFormulaChange={setFormula}
+                                currentFormula={formula}
+                            />
+                        )}
                         {/* Validation Status Indicator */}
                         {formula.trim() && (
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -312,9 +347,11 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                                 )}
                             </div>
                         )}
-                        <p className="text-[10px] text-muted-foreground">
-                            💡 Tip: Press Ctrl+Space for autocomplete. Select text and click a function to wrap it, or click function then insert columns inside parentheses.
-                        </p>
+                        {mode === "code" && (
+                            <p className="text-[10px] text-muted-foreground">
+                                💡 Tip: Press Ctrl+Space for autocomplete. Select text and click a function to wrap it, or click function then insert columns inside parentheses.
+                            </p>
+                        )}
                         <div className="flex gap-2">
                             <Button onClick={handleTest} size="sm" disabled={!formula.trim() || isLoading || !validation.isValid || isValidating}>
                                 {isLoading ? (
