@@ -189,8 +189,8 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                 show: true,
                 query: match[1],
                 position: {
-                    top: rect.bottom + window.scrollY,
-                    left: rect.left + window.scrollX
+                    top: rect.bottom,
+                    left: rect.left
                 }
             });
         } else {

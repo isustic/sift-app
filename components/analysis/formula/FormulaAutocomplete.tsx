@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { AUTOCOMPLETE_FUNCTIONS } from "./constants";
 
 export interface AutocompleteItem {
     type: "function" | "column";
@@ -27,37 +28,9 @@ export function FormulaAutocomplete({
     const [selectedIndex, setSelectedIndex] = useState(0);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Function definitions aligned with FunctionReference
-    const functions = [
-        { name: "SUM", detail: "Aggregate function", icon: "📊" },
-        { name: "AVG", detail: "Aggregate function", icon: "📊" },
-        { name: "COUNT", detail: "Aggregate function", icon: "📊" },
-        { name: "MIN", detail: "Aggregate function", icon: "📊" },
-        { name: "MAX", detail: "Aggregate function", icon: "📊" },
-        { name: "ROUND", detail: "Math function", icon: "🔢" },
-        { name: "ABS", detail: "Math function", icon: "🔢" },
-        { name: "POWER", detail: "Math function", icon: "🔢" },
-        { name: "IF", detail: "Logic function", icon: "🧠" },
-        { name: "CASE", detail: "Logic function", icon: "🧠" },
-        { name: "COALESCE", detail: "Logic function", icon: "🧠" },
-        { name: "NULLIF", detail: "Logic function", icon: "🧠" },
-        { name: "CONCAT", detail: "Text function", icon: "📝" },
-        { name: "UPPER", detail: "Text function", icon: "📝" },
-        { name: "LOWER", detail: "Text function", icon: "📝" },
-        { name: "SUBSTRING", detail: "Text function", icon: "📝" },
-        { name: "LENGTH", detail: "Text function", icon: "📝" },
-        { name: "TRIM", detail: "Text function", icon: "📝" },
-        { name: "NOW", detail: "Date function", icon: "📅" },
-        { name: "YEAR", detail: "Date function", icon: "📅" },
-        { name: "MONTH", detail: "Date function", icon: "📅" },
-        { name: "DAY", detail: "Date function", icon: "📅" },
-        { name: "DATEDIFF", detail: "Date function", icon: "📅" },
-        { name: "DATE", detail: "Date function", icon: "📅" },
-    ];
-
     // Filter suggestions based on query
     const suggestions: AutocompleteItem[] = [
-        ...functions.filter(f =>
+        ...AUTOCOMPLETE_FUNCTIONS.filter(f =>
             f.name.toLowerCase().startsWith(query.toLowerCase())
         ).map(f => ({ ...f, type: "function" as const })),
         ...columns.filter(c =>
@@ -109,12 +82,16 @@ export function FormulaAutocomplete({
     return (
         <div
             ref={menuRef}
+            role="listbox"
+            aria-label="Formula suggestions"
             className="fixed z-50 w-64 bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto"
             style={{ top: position.top + 24, left: position.left }}
         >
             {suggestions.map((item, index) => (
                 <button
                     key={`${item.type}-${item.name}`}
+                    role="option"
+                    aria-selected={index === selectedIndex}
                     onClick={() => onSelect(item)}
                     className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${
                         index === selectedIndex

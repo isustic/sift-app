@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FUNCTION_DATA, FUNCTION_CATEGORIES } from "./constants";
 
 interface FunctionReferenceProps {
     onInsert: (fn: string) => void;
@@ -16,200 +17,6 @@ interface FunctionInfo {
     example: string;
     returnType: string;
 }
-
-const functionData: Record<string, FunctionInfo> = {
-    SUM: {
-        name: "SUM",
-        syntax: "SUM(column)",
-        description: "Returns the total sum of values in a column",
-        example: "SUM(Sales)",
-        returnType: "number"
-    },
-    AVG: {
-        name: "AVG",
-        syntax: "AVG(column)",
-        description: "Returns the average (mean) of values in a column",
-        example: "AVG(Price)",
-        returnType: "number"
-    },
-    COUNT: {
-        name: "COUNT",
-        syntax: "COUNT(column)",
-        description: "Returns the number of non-null values",
-        example: "COUNT(Orders)",
-        returnType: "number"
-    },
-    MIN: {
-        name: "MIN",
-        syntax: "MIN(column)",
-        description: "Returns the minimum value",
-        example: "MIN(Sales)",
-        returnType: "number"
-    },
-    MAX: {
-        name: "MAX",
-        syntax: "MAX(column)",
-        description: "Returns the maximum value",
-        example: "MAX(Sales)",
-        returnType: "number"
-    },
-    ROUND: {
-        name: "ROUND",
-        syntax: "ROUND(value, decimals)",
-        description: "Round a number to specified decimals",
-        example: "ROUND(Price, 2)",
-        returnType: "number"
-    },
-    ABS: {
-        name: "ABS",
-        syntax: "ABS(value)",
-        description: "Absolute value",
-        example: "ABS(-5)",
-        returnType: "number"
-    },
-    POWER: {
-        name: "POWER",
-        syntax: "POWER(base, exp)",
-        description: "Raise to power",
-        example: "POWER(2, 3)",
-        returnType: "number"
-    },
-    NOW: {
-        name: "NOW",
-        syntax: "NOW()",
-        description: "Current timestamp",
-        example: "NOW()",
-        returnType: "date"
-    },
-    YEAR: {
-        name: "YEAR",
-        syntax: "YEAR(date)",
-        description: "Extract year from date",
-        example: "YEAR(OrderDate)",
-        returnType: "number"
-    },
-    MONTH: {
-        name: "MONTH",
-        syntax: "MONTH(date)",
-        description: "Extract month from date",
-        example: "MONTH(OrderDate)",
-        returnType: "number"
-    },
-    DAY: {
-        name: "DAY",
-        syntax: "DAY(date)",
-        description: "Extract day from date",
-        example: "DAY(OrderDate)",
-        returnType: "number"
-    },
-    DATEDIFF: {
-        name: "DATEDIFF",
-        syntax: "DATEDIFF(end, start)",
-        description: "Days between two dates",
-        example: "DATEDIFF(end_date, start_date)",
-        returnType: "number"
-    },
-    DATE: {
-        name: "DATE",
-        syntax: "DATE(str)",
-        description: "Parse string as date",
-        example: "DATE('2024-01-01')",
-        returnType: "date"
-    },
-    CONCAT: {
-        name: "CONCAT",
-        syntax: "CONCAT(a, b, ...)",
-        description: "Join strings together",
-        example: "CONCAT(First, ' ', Last)",
-        returnType: "text"
-    },
-    UPPER: {
-        name: "UPPER",
-        syntax: "UPPER(str)",
-        description: "Convert to uppercase",
-        example: "UPPER(name)",
-        returnType: "text"
-    },
-    LOWER: {
-        name: "LOWER",
-        syntax: "LOWER(str)",
-        description: "Convert to lowercase",
-        example: "LOWER(name)",
-        returnType: "text"
-    },
-    SUBSTRING: {
-        name: "SUBSTRING",
-        syntax: "SUBSTRING(str, start, len)",
-        description: "Extract part of string",
-        example: "SUBSTRING(name, 1, 3)",
-        returnType: "text"
-    },
-    LENGTH: {
-        name: "LENGTH",
-        syntax: "LENGTH(str)",
-        description: "String length",
-        example: "LENGTH(name)",
-        returnType: "number"
-    },
-    TRIM: {
-        name: "TRIM",
-        syntax: "TRIM(str)",
-        description: "Remove whitespace",
-        example: "TRIM(name)",
-        returnType: "text"
-    },
-    IF: {
-        name: "IF",
-        syntax: "IF(condition, true_val, false_val)",
-        description: "Conditional value",
-        example: "IF(Sales > 100, 'High', 'Low')",
-        returnType: "any"
-    },
-    CASE: {
-        name: "CASE",
-        syntax: "CASE WHEN...THEN...ELSE...END",
-        description: "Switch statement",
-        example: "CASE WHEN x > 0 THEN 'positive' ELSE 'negative' END",
-        returnType: "any"
-    },
-    COALESCE: {
-        name: "COALESCE",
-        syntax: "COALESCE(a, b, c)",
-        description: "First non-null value",
-        example: "COALESCE(Discount, 0)",
-        returnType: "any"
-    },
-    NULLIF: {
-        name: "NULLIF",
-        syntax: "NULLIF(a, b)",
-        description: "NULL if equal",
-        example: "NULLIF(price, 0)",
-        returnType: "any"
-    },
-};
-
-const functionCategories = [
-    {
-        name: "Math",
-        icon: "📊",
-        functions: ["SUM", "AVG", "COUNT", "MIN", "MAX", "ROUND", "ABS", "POWER"]
-    },
-    {
-        name: "Date",
-        icon: "📅",
-        functions: ["NOW", "YEAR", "MONTH", "DAY", "DATEDIFF", "DATE"]
-    },
-    {
-        name: "Text",
-        icon: "📝",
-        functions: ["CONCAT", "UPPER", "LOWER", "SUBSTRING", "LENGTH", "TRIM"]
-    },
-    {
-        name: "Logic",
-        icon: "🧠",
-        functions: ["IF", "CASE", "COALESCE", "NULLIF"]
-    },
-];
 
 interface FunctionCardProps {
     info: FunctionInfo;
@@ -280,16 +87,16 @@ export function FunctionReference({ onInsert }: FunctionReferenceProps) {
 
     const filteredCategories = useMemo(() => {
         if (!searchQuery.trim()) {
-            return functionCategories;
+            return FUNCTION_CATEGORIES;
         }
 
         const query = searchQuery.toLowerCase();
 
-        return functionCategories
+        return FUNCTION_CATEGORIES
             .map((category) => ({
                 ...category,
                 functions: category.functions.filter((fnName) => {
-                    const info = functionData[fnName];
+                    const info = FUNCTION_DATA[fnName];
                     return (
                         info.name.toLowerCase().includes(query) ||
                         info.description.toLowerCase().includes(query)
@@ -343,7 +150,7 @@ export function FunctionReference({ onInsert }: FunctionReferenceProps) {
                                 {category.functions.map((fnName) => (
                                     <FunctionCard
                                         key={fnName}
-                                        info={functionData[fnName]}
+                                        info={FUNCTION_DATA[fnName]}
                                         isExpanded={expandedFunction === fnName}
                                         onToggle={() => handleToggleFunction(fnName)}
                                         onInsert={() => handleInsert(fnName)}
