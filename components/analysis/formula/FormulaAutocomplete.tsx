@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AUTOCOMPLETE_FUNCTIONS } from "./constants";
 
 export interface AutocompleteItem {
@@ -28,20 +28,20 @@ export function FormulaAutocomplete({
     const [selectedIndex, setSelectedIndex] = useState(0);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Filter suggestions based on query
-    const suggestions: AutocompleteItem[] = [
+    // Memoize suggestions to prevent re-renders
+    const suggestions: AutocompleteItem[] = useMemo(() => [
         ...AUTOCOMPLETE_FUNCTIONS.filter(f =>
             f.name.toLowerCase().startsWith(query.toLowerCase())
         ).map(f => ({ ...f, type: "function" as const })),
         ...columns.filter(c =>
             c.toLowerCase().includes(query.toLowerCase())
         ).map(c => ({ name: c, type: "column" as const, icon: "📄" }))
-    ];
+    ], [query, columns]);
 
     // Reset selected index when suggestions change
     useEffect(() => {
         setSelectedIndex(0);
-    }, [query]);
+    }, [suggestions]);
 
     // Handle keyboard navigation
     useEffect(() => {

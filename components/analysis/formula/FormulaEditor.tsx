@@ -56,7 +56,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
         try {
             const res = await invoke<SavedFormula[]>("list_formulas", { datasetId });
             setFormulas(res);
-        } catch (err) {
+        } catch (_err) {
             setError("Failed to load saved formulas.");
         } finally {
             setIsLoadingFormulas(false);
@@ -82,7 +82,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             setPreview(res);
             setSuccessMessage("Formula test successful!");
             setTimeout(() => setSuccessMessage(null), 3000);
-        } catch (err) {
+        } catch (_err) {
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Formula test failed: ${errorMessage}. Please check your syntax and try again.`);
             setPreview(null);
@@ -110,7 +110,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             setSuccessMessage("Formula saved successfully!");
             setTimeout(() => setSuccessMessage(null), 3000);
             loadFormulas();
-        } catch (err) {
+        } catch (_err) {
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Failed to save formula: ${errorMessage}. Please try again.`);
         } finally {
@@ -128,7 +128,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                 setFormula("");
                 setPreview(null);
             }
-        } catch (err) {
+        } catch (_err) {
             setError("Failed to delete formula.");
         }
     };
