@@ -78,7 +78,7 @@ pub fn test_formula(
     dataset_id: i64,
     formula_sql: String,
     state: State<DbState>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<serde_json::Value, String> {
     let conn = state.0.lock().map_err(|_| "DB lock error")?;
 
     // Get dataset table name
@@ -90,28 +90,46 @@ pub fn test_formula(
         )
         .map_err(|e| format!("Dataset not found: {}", e))?;
 
-    // Build the query with formula as a calculated column
-    let sql = format!(
-        "SELECT *, ({}) AS calculated_result FROM {} LIMIT 100",
-        formula_sql, table_name
-    );
+    // Check if formula uses aggregate functions (returns single value)
+    let aggregate_keywords = ["SUM(", "AVG(", "COUNT(", "MIN(", "MAX(", "COUNT"];
+    let is_aggregate = aggregate_keywords.iter().any(|kw| formula_sql.to_uppercase().contains(kw));
 
-    let mut stmt = conn
-        .prepare(&sql)
-        .map_err(|e| format!("Query preparation failed: {}", e))?;
+    if is_aggregate {
+        // For aggregates, return just the single scalar value
+        let sql = format!("SELECT ({}) AS result FROM {}", formula_sql, table_name);
+        let result: Option<f64> = conn
+            .query_row(&sql, [], |row| row.get(0))
+            .map_err(|e| format!("Query execution failed: {}", e))?;
 
-    let results = stmt
-        .query_map([], |row| {
-            let mut obj = serde_json::Map::new();
-            for (i, col) in row.as_ref().column_names().iter().enumerate() {
-                let value: Option<String> = row.get(i).ok();
-                obj.insert(col.to_string(), serde_json::json!(value.unwrap_or_else(|| "NULL".to_string())));
-            }
-            serde_json::to_value(obj).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
-        })
-        .map_err(|e| format!("Query execution failed: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Result collection failed: {}", e))?;
+        Ok(serde_json::json!({
+            "type": "scalar",
+            "value": result,
+            "formula": formula_sql,
+        }))
+    } else {
+        // For row-level calculations, return first 10 rows with just the formula result
+        let sql = format!(
+            "SELECT ({}) AS result FROM {} LIMIT 10",
+            formula_sql, table_name
+        );
 
-    Ok(results)
+        let mut stmt = conn
+            .prepare(&sql)
+            .map_err(|e| format!("Query preparation failed: {}", e))?;
+
+        let results = stmt
+            .query_map([], |row| {
+                let value: Option<String> = row.get(0).ok();
+                Ok(serde_json::json!(value.unwrap_or_else(|| "NULL".to_string())))
+            })
+            .map_err(|e| format!("Query execution failed: {}", e))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Result collection failed: {}", e))?;
+
+        Ok(serde_json::json!({
+            "type": "rows",
+            "values": results,
+            "formula": formula_sql,
+        }))
+    }
 }

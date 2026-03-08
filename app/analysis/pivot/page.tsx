@@ -17,7 +17,7 @@ interface Column {
 }
 
 interface PivotResult {
-    rows: Record<string, unknown>[];
+    rows: Array<{ cells: string[] }>;
     columns: string[];
 }
 
@@ -60,7 +60,15 @@ export default function PivotPage() {
                 datasetId,
                 config
             });
-            setResults(result.rows);
+            // Transform backend format { cells: [...] } to { col1: val1, col2: val2, ... }
+            const transformedRows = result.rows.map((row) => {
+                const obj: Record<string, unknown> = {};
+                result.columns.forEach((col, index) => {
+                    obj[col] = row.cells[index] ?? "";
+                });
+                return obj;
+            });
+            setResults(transformedRows);
             setResultColumns(result.columns);
         } catch (err) {
             console.error("Pivot query failed:", err);
@@ -82,69 +90,85 @@ export default function PivotPage() {
 
     return (
         <div className="flex flex-col h-full bg-background/50 mesh-bg">
-            {/* Header */}
-            <div className="h-14 px-6 flex items-center justify-between border-b border-border/50 bg-card/30 backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                    <Link href="/analysis">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <DatasetSelector value={datasetId} onChange={handleDatasetChange} />
-                    {isLoadingColumns && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <LoaderIcon className="h-4 w-4 animate-spin" />
-                            <span>Loading columns...</span>
-                        </div>
-                    )}
-                </div>
+            {/* Compact Header */}
+            <div className="h-12 px-4 flex items-center gap-3 border-b border-border/50 bg-card/30 backdrop-blur-sm shrink-0">
+                <Link href="/analysis">
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                    </Button>
+                </Link>
+                <DatasetSelector value={datasetId} onChange={handleDatasetChange} />
+                {isLoadingColumns && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <LoaderIcon className="h-3 w-3 animate-spin" />
+                        <span>Loading...</span>
+                    </div>
+                )}
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-6">
-                {error && (
-                    <Alert variant="destructive" className="mb-4">
-                        <AlertCircleIcon className="h-4 w-4" />
-                        <AlertDescription className="flex items-center justify-between">
+            {/* Error Alert */}
+            {error && (
+                <div className="px-4 pt-3 shrink-0">
+                    <Alert variant="destructive" className="py-2 px-3">
+                        <AlertCircleIcon className="h-3.5 w-3.5" />
+                        <AlertDescription className="flex items-center justify-between text-xs">
                             <span>{error}</span>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={handleRetry}
-                                className="ml-4 bg-background"
+                                className="ml-4 h-6 px-2 bg-background"
                             >
                                 Try again
                             </Button>
                         </AlertDescription>
                     </Alert>
-                )}
+                </div>
+            )}
 
-                {datasetId ? (
-                    <div className="space-y-6">
-                        <PivotBuilder
-                            columns={columns}
-                            onRun={handleRun}
-                            onSave={() => {}}
-                            isLoading={isLoading}
-                        />
-                        {isLoading && (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="flex flex-col items-center gap-3">
-                                    <LoaderIcon className="h-8 w-8 text-primary animate-spin" />
-                                    <p className="text-sm text-muted-foreground">Running pivot query...</p>
+            {/* Main Content: Side-by-Side Layout */}
+            {!datasetId ? (
+                <div className="flex items-center justify-center h-full">
+                    <p className="text-sm text-muted-foreground">Select a dataset to begin</p>
+                </div>
+            ) : (
+                <div className="flex-1 flex min-h-0 overflow-hidden">
+                    {/* Left Side: Pivot Builder */}
+                    <div className="w-72 shrink-0 border-r border-border/50 bg-card/20 flex flex-col">
+                        <div className="p-3 space-y-3 overflow-y-auto flex-1">
+                            <PivotBuilder
+                                columns={columns}
+                                onRun={handleRun}
+                                onSave={() => {}}
+                                isLoading={isLoading}
+                                compact
+                            />
+                        </div>
+                    </div>
+
+                    {/* Right Side: Results */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="flex flex-col items-center gap-2">
+                                    <LoaderIcon className="h-6 w-6 text-primary animate-spin" />
+                                    <p className="text-xs text-muted-foreground">Running pivot query...</p>
                                 </div>
                             </div>
-                        )}
-                        {!isLoading && results.length > 0 && (
-                            <ResultsGrid data={results} columns={resultColumns} />
+                        ) : results.length > 0 ? (
+                            <div className="flex-1 overflow-auto p-3">
+                                <ResultsGrid data={results} columns={resultColumns} />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-full">
+                                <p className="text-xs text-muted-foreground">
+                                    Configure your pivot and click Run to see results
+                                </p>
+                            </div>
                         )}
                     </div>
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-sm text-muted-foreground">Select a dataset to begin</p>
-                    </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }

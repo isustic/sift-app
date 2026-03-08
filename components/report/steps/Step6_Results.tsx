@@ -274,52 +274,90 @@ export function Step6_Results({
   const formatValue = (value: unknown, columnName?: string): string => {
     if (value === null || value === undefined) return ""
 
-    // Check if this is a date column (by name pattern)
-    const isDateColumn = columnName && (
-      columnName.toLowerCase().includes("date") ||
-      columnName.toLowerCase().includes("time") ||
-      columnName.toLowerCase() === "data"
-    )
+    // Check if this is a date column (by name pattern) - MUST be specific to avoid converting product codes
+    const colNameLower = columnName?.toLowerCase() || ""
+    const isDateColumn = colNameLower === "data" ||
+      colNameLower.includes("date") ||
+      colNameLower.includes("time") ||
+      colNameLower.includes("fecha") ||
+      colNameLower === "datums"  // German
 
-    // Format YYYYMMDD integers as readable dates
+    // Only convert to date if it's actually a date column
     if (typeof value === "number") {
+      const numValue = Number(value)
       const dateStr = value.toString()
 
-      // Check if this looks like a YYYYMMDD date (8 digits, valid range)
-      if (isDateColumn || (value >= 19000101 && value <= 21000101 && dateStr.length === 8)) {
-        const year = dateStr.substring(0, 4)
-        const month = dateStr.substring(4, 6)
-        const day = dateStr.substring(6, 8)
-        // Format as YYYY-MM-DD
-        return `${year}-${month}-${day}`
+      // First check: YYYYMMDD format (8 digits, valid range)
+      if (dateStr.length === 8 && numValue >= 19000101 && numValue <= 21000101) {
+        // Only convert if it's a date column
+        if (isDateColumn) {
+          const year = dateStr.substring(0, 4)
+          const month = dateStr.substring(4, 6)
+          const day = dateStr.substring(6, 8)
+          return `${year}-${month}-${day}`
+        }
       }
 
-      // Check if this looks like an Excel serial date (1-100000 range)
-      if (isDateColumn && value >= 1 && value < 100000) {
-        // Convert Excel serial to JavaScript Date
-        // Excel epoch: January 1, 1900 (serial 1)
-        // Excel has a bug treating 1900 as leap year, so subtract 2 days
-        const excelEpoch = new Date(1900, 0, 1)
-        const daysSinceEpoch = value - 2
-        const date = new Date(excelEpoch.getTime() + daysSinceEpoch * 24 * 60 * 60 * 1000)
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const day = String(date.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
+      // Excel serial date conversion - ONLY for date columns
+      // Excel serial dates are typically 30000-60000 for years 1982-2078
+      if (isDateColumn && numValue >= 30000 && numValue < 70000) {
+        const excelSerial = Math.floor(numValue)
+        const daysSince1900 = excelSerial - 2  // Correct for Excel leap year bug
+
+        // Calculate the date from days since 1900-01-01
+        let remainingDays = daysSince1900
+        let year = 1900
+        const daysIn4Years = 365 * 4 + 1  // Including one leap year
+
+        const years4 = Math.floor(remainingDays / daysIn4Years)
+        remainingDays -= years4 * daysIn4Years
+        year += years4 * 4
+
+        // Add remaining years
+        while (remainingDays >= 366) {
+          const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+          const daysInThisYear = isLeapYear ? 366 : 365
+          if (remainingDays < daysInThisYear) break
+          remainingDays -= daysInThisYear
+          year++
+        }
+
+        const dayOfYear = remainingDays
+        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+        const daysInMonths = isLeapYear
+          ? [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+          : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+        let month = 0
+        let dayOfMonth = dayOfYear
+        for (let i = 0; i < daysInMonths.length; i++) {
+          if (dayOfMonth < daysInMonths[i]) {
+            month = i
+            break
+          }
+          dayOfMonth -= daysInMonths[i]
+        }
+
+        const monthStr = String(month + 1).padStart(2, '0')
+        const dayStr = String(dayOfMonth + 1).padStart(2, '0')
+        return `${year}-${monthStr}-${dayStr}`
       }
 
-      // Return numbers as plain string (no commas)
-      return dateStr
+      // Regular numbers (product codes, quantities) - return as plain string
+      return value.toString()
     }
 
-    // Also check string values that might be YYYYMMDD
+    // Handle string values
     if (typeof value === "string") {
-      const num = parseInt(value, 10)
-      if (!isNaN(num) && num >= 19000101 && num <= 21000101 && value.length === 8) {
-        const year = value.substring(0, 4)
-        const month = value.substring(4, 6)
-        const day = value.substring(6, 8)
-        return `${year}-${month}-${day}`
+      // Check if it's YYYYMMDD format (only for date columns)
+      if (isDateColumn) {
+        const num = parseInt(value, 10)
+        if (!isNaN(num) && num >= 19000101 && num <= 21000101 && value.length === 8) {
+          const year = value.substring(0, 4)
+          const month = value.substring(4, 6)
+          const day = value.substring(6, 8)
+          return `${year}-${month}-${day}`
+        }
       }
     }
 
