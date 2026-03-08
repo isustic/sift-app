@@ -244,18 +244,26 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
         }, 0);
     };
 
-    // Global keydown listener for Ctrl+Space
+    // Global keydown listener for keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Ctrl+Space: Autocomplete
             if (e.ctrlKey && e.key === " ") {
                 e.preventDefault();
                 handleAutocompleteTrigger();
+            }
+            // Ctrl+Enter: Test formula
+            if (e.ctrlKey && e.key === "Enter") {
+                e.preventDefault();
+                if (formula.trim() && validation.isValid && !isValidating) {
+                    handleTest();
+                }
             }
         };
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [formula]);
+    }, [formula, validation.isValid, isValidating]);
 
     return (
         <div className="space-y-4">
@@ -347,9 +355,14 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                                 )}
                             </div>
                         )}
+                        {/* Keyboard Shortcuts Documentation */}
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/30 px-2 py-1.5 rounded-md">
+                            <span>⌨️</span>
+                            <span>Ctrl+Space: Autocomplete • Ctrl+Enter: Test Formula</span>
+                        </div>
                         {mode === "code" && (
                             <p className="text-[10px] text-muted-foreground">
-                                💡 Tip: Press Ctrl+Space for autocomplete. Select text and click a function to wrap it, or click function then insert columns inside parentheses.
+                                💡 Tip: Select text and click a function to wrap it, or click function then insert columns inside parentheses.
                             </p>
                         )}
                         <div className="flex gap-2">
@@ -362,8 +375,12 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                                 {isLoading ? "Testing..." : "Test"}
                             </Button>
                             <Button onClick={handleSave} size="sm" variant="outline" disabled={!name.trim() || !formula.trim() || isLoading}>
-                                <Save className="w-4 h-4 mr-1" />
-                                Save
+                                {isLoading ? (
+                                    <LoaderIcon className="w-4 h-4 mr-1 animate-spin" />
+                                ) : (
+                                    <Save className="w-4 h-4 mr-1" />
+                                )}
+                                {isLoading ? "Saving..." : "Save"}
                             </Button>
                         </div>
                     </div>
