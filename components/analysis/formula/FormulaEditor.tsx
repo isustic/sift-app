@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon } from "lucide-react";
+import { Save, Play, Trash2, Plus, LoaderIcon, AlertCircleIcon, CheckCircle2Icon, Calculator } from "lucide-react";
 import { FunctionReference } from "./FunctionReference";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -19,11 +19,16 @@ interface SavedFormula {
     formula_sql: string;
 }
 
+type FormulaPreview =
+    | { type: "scalar"; value: number | null; formula: string }
+    | { type: "rows"; values: (string | number | null)[]; formula: string }
+    | null;
+
 export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
     const [name, setName] = useState("");
     const [formula, setFormula] = useState("");
     const [formulas, setFormulas] = useState<SavedFormula[]>([]);
-    const [preview, setPreview] = useState<Record<string, unknown>[]>([]);
+    const [preview, setPreview] = useState<FormulaPreview>(null);
     const [selectedFormula, setSelectedFormula] = useState<SavedFormula | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingFormulas, setIsLoadingFormulas] = useState(false);
@@ -37,7 +42,6 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             const res = await invoke<SavedFormula[]>("list_formulas", { datasetId });
             setFormulas(res);
         } catch (err) {
-            console.error("Failed to load formulas:", err);
             setError("Failed to load saved formulas.");
         } finally {
             setIsLoadingFormulas(false);
@@ -56,7 +60,7 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
         setSuccessMessage(null);
 
         try {
-            const res = await invoke<Record<string, unknown>[]>("test_formula", {
+            const res = await invoke<FormulaPreview>("test_formula", {
                 datasetId,
                 formulaSql: formula,
             });
@@ -64,10 +68,9 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             setSuccessMessage("Formula test successful!");
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
-            console.error("Test failed:", err);
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Formula test failed: ${errorMessage}. Please check your syntax and try again.`);
-            setPreview([]);
+            setPreview(null);
         } finally {
             setIsLoading(false);
         }
@@ -88,12 +91,11 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
             });
             setName("");
             setFormula("");
-            setPreview([]);
+            setPreview(null);
             setSuccessMessage("Formula saved successfully!");
             setTimeout(() => setSuccessMessage(null), 3000);
             loadFormulas();
         } catch (err) {
-            console.error("Save failed:", err);
             const errorMessage = err instanceof Error ? err.message : "Unknown error";
             setError(`Failed to save formula: ${errorMessage}. Please try again.`);
         } finally {
@@ -109,10 +111,9 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                 setSelectedFormula(null);
                 setName("");
                 setFormula("");
-                setPreview([]);
+                setPreview(null);
             }
         } catch (err) {
-            console.error("Delete failed:", err);
             setError("Failed to delete formula.");
         }
     };
@@ -221,22 +222,50 @@ export function FormulaEditor({ datasetId, columns }: FormulaEditorProps) {
                     </div>
 
                     {/* Preview */}
-                    {preview.length > 0 && (
-                        <div className="bg-card/30 border border-border/40 rounded-xl overflow-auto">
-                            <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/40">Preview (first 100 rows)</p>
-                            <table className="w-full text-sm">
-                                <tbody>
-                                    {preview.slice(0, 100).map((row, i) => (
-                                        <tr key={i} className="border-t border-border/20">
-                                            {Object.entries(row).map(([key, val]) => (
-                                                <td key={key} className="px-4 py-1">
-                                                    {String(val ?? "")}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {preview && (
+                        <div className="bg-card/30 border border-border/40 rounded-xl overflow-hidden">
+                            {preview.type === "scalar" ? (
+                                // Scalar result display (aggregate functions)
+                                <div className="p-6">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <Calculator className="h-5 w-5 text-primary" />
+                                        <span className="text-xs font-medium text-muted-foreground">Result</span>
+                                    </div>
+                                    <div className="bg-background/50 rounded-lg p-4 border border-border/30">
+                                        <p className="text-3xl font-bold text-foreground">
+                                            {preview.value !== null ? Number(preview.value).toLocaleString(undefined, {
+                                                maximumFractionDigits: 2,
+                                            }) : "NULL"}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-2 font-mono">
+                                            {preview.formula}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                // Row-level results display
+                                <div>
+                                    <p className="px-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/40">
+                                        Preview (first 10 rows)
+                                    </p>
+                                    <div className="max-h-64 overflow-auto">
+                                        <table className="w-full text-sm">
+                                            <tbody>
+                                                {preview.values.map((val, i) => (
+                                                    <tr key={i} className="border-t border-border/20">
+                                                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground w-16">
+                                                            {i + 1}
+                                                        </td>
+                                                        <td className="px-4 py-2">
+                                                            {val !== null ? String(val) : <span className="text-muted-foreground/50">NULL</span>}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
