@@ -51,6 +51,7 @@ pub fn run() {
             commands::data::search_rows,
             commands::data::delete_dataset,
             commands::data::rename_dataset,
+            commands::data::clear_database,
             commands::report::run_report,
             commands::export::export_report,
             commands::templates::save_template,

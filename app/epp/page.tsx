@@ -34,7 +34,7 @@ function EPPPageContent() {
     rows: EppRow[];
   } | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showQualifiedOnly, setShowQualifiedOnly] = useState(false);
 
   // Load datasets on mount

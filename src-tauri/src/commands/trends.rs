@@ -48,44 +48,61 @@ pub fn run_trends_query(
     let safe_date_col = sanitize_col_name(&config.date_column);
     let safe_value_col = sanitize_col_name(&config.value_column);
 
-    // Build SQL based on period - convert Excel dates and extract month/year
-    // Excel offset 25568 converts to proper dates
+    // Build SQL based on period
+    // Dates are stored as YYYYMMDD integers (e.g., 20260212) or TEXT.
+    // Convert to ISO date string: substr(Data, 1, 4) || '-' || substr(Data, 5, 2) || '-' || substr(Data, 7, 2)
+    let date_expr = format!(
+        "CASE WHEN typeof(\"{col}\") = 'integer' AND \"{col}\" >= 19000101 THEN \
+         substr(CAST(\"{col}\" AS TEXT), 1, 4) || '-' || substr(CAST(\"{col}\" AS TEXT), 5, 2) || '-' || substr(CAST(\"{col}\" AS TEXT), 7, 2) \
+         WHEN typeof(\"{col}\") = 'text' AND length(\"{col}\") = 8 THEN \
+         substr(\"{col}\", 1, 4) || '-' || substr(\"{col}\", 5, 2) || '-' || substr(\"{col}\", 7, 2) \
+         ELSE CAST(\"{col}\" AS TEXT) END",
+        col = safe_date_col
+    );
+
     let sql = match config.period.as_str() {
         "daily" => format!(
-            "SELECT date(({} - 25568) * 86400, 'unixepoch') AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT ({date_expr}) AS period, {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
         "weekly" => format!(
-            "SELECT strftime('%Y-W%W', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT strftime('%Y-W%W', {date_expr}) AS period, {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
         "monthly" => format!(
-            "SELECT strftime('%Y-%m', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT strftime('%Y-%m', {date_expr}) AS period, {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
         "quarterly" => format!(
-            "SELECT strftime('%Y-Q', date(({} - 25568) * 86400, 'unixepoch')) || CAST((CAST(strftime('%m', date(({} - 25568) * 86400, 'unixepoch')) AS INTEGER) - 1) / 3 + 1 AS TEXT) AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT strftime('%Y-Q', {date_expr}) || CAST((CAST(strftime('%m', {date_expr}) AS INTEGER) - 1) / 3 + 1 AS TEXT) AS period, \
+             {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
         "yearly" => format!(
-            "SELECT strftime('%Y', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT strftime('%Y', {date_expr}) AS period, {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
         _ => format!(
-            "SELECT strftime('%Y-%m', date(({} - 25568) * 86400, 'unixepoch')) AS period, {}({}) AS value \
-             FROM {} WHERE {} IS NOT NULL AND {} IS NOT NULL \
+            "SELECT strftime('%Y-%m', {date_expr}) AS period, {agg_sql}(\"{val}\") AS value \
+             FROM \"{tbl}\" WHERE \"{date}\" IS NOT NULL AND \"{val}\" IS NOT NULL \
              GROUP BY period ORDER BY period ASC",
-            safe_date_col, agg_sql, safe_value_col, table_name, safe_date_col, safe_value_col
+            date_expr = date_expr, agg_sql = agg_sql, val = safe_value_col,
+            tbl = table_name, date = safe_date_col
         ),
     };
 

@@ -65,12 +65,10 @@ fn cell_to_string(cell: &Data) -> String {
         Data::Empty => String::new(),
         Data::String(s) | Data::DateTimeIso(s) | Data::DurationIso(s) => s.clone(),
         Data::Float(f) => {
-            // Check if this looks like an Excel date (between reasonable Excel date range)
-            // Excel dates typically range from 1 (1900-01-01) to ~60000 (2078-12-31)
-            if *f >= 1.0 && *f < 100000.0 && f.fract() == 0.0 {
-                // This might be an Excel serial date - convert to YYYYMMDD
-                excel_serial_to_yyyymmdd(*f)
-            } else if f.fract() == 0.0 && f.abs() < (i64::MAX as f64) {
+            // Do NOT try to guess if a float is an Excel serial date here.
+            // Calamine already returns actual dates as Data::DateTime (handled below),
+            // so Data::Float values are always numeric (e.g. monetary amounts).
+            if f.fract() == 0.0 && f.abs() < (i64::MAX as f64) {
                 // Format without trailing decimal for whole numbers
                 (*f as i64).to_string()
             } else {

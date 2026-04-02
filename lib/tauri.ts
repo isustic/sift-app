@@ -7,6 +7,7 @@
 let invokeCache: any = null;
 let openCache: any = null;
 let listenCache: any = null;
+let confirmCache: any = null;
 
 /**
  * Safe invoke wrapper for calling Tauri commands
@@ -59,6 +60,24 @@ export async function safeListen<T>(
         }
     }
     return listenCache(event, handler);
+}
+
+/**
+ * Safe confirm wrapper using Tauri dialog
+ */
+export async function safeConfirm(
+    message: string,
+    title?: string
+): Promise<boolean> {
+    if (!confirmCache) {
+        try {
+            const dialog = await import('@tauri-apps/plugin-dialog');
+            confirmCache = dialog.confirm;
+        } catch {
+            return window.confirm(message);
+        }
+    }
+    return confirmCache(message, { title: title || 'Confirm', kind: 'warning' });
 }
 
 /**

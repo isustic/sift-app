@@ -3,6 +3,45 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+/// Clear all user data: drop dataset tables, wipe metadata tables.
+/// Preserves the subgroups reference table.
+#[tauri::command]
+pub fn clear_database(db: State<'_, DbState>) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
+
+    // Collect all dataset table names before wiping metadata
+    let mut stmt = conn
+        .prepare("SELECT table_name FROM datasets")
+        .map_err(|e| format!("Query error: {e}"))?;
+    let tables: Vec<String> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| format!("Read error: {e}"))?
+        .filter_map(|t| t.ok())
+        .collect();
+
+    // Drop each dataset table
+    for table in &tables {
+        let safe = sanitize_col_name(table);
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{safe}\";"))
+            .map_err(|e| format!("Drop table error: {e}"))?;
+    }
+
+    // Wipe metadata tables
+    conn.execute_batch(
+        "DELETE FROM columns;
+         DELETE FROM datasets;
+         DELETE FROM report_templates;
+         DELETE FROM analytics_events;
+         DELETE FROM query_history;
+         DELETE FROM favorites;
+         DELETE FROM calculated_fields;
+         DELETE FROM blend_configs;",
+    )
+    .map_err(|e| format!("Clear metadata error: {e}"))?;
+
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dataset {
     pub id: i64,

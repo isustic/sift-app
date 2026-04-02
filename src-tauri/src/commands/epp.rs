@@ -185,7 +185,7 @@ pub fn generate_epp_report(
 ) -> Result<EppReportResult, String> {
     let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
 
-    let report_year = year.unwrap_or(2025);
+    let report_year = year.unwrap_or_else(|| chrono::Utc::now().year());
 
     // Get table names - either specific dataset or all datasets
     let table_names: Vec<String> = if let Some(ds_id) = dataset_id {
@@ -301,11 +301,10 @@ pub fn generate_epp_report(
                 };
                 let date_str = match date_ref {
                     rusqlite::types::ValueRef::Text(s) => {
-                        std::str::from_utf8(s).unwrap_or("").to_string()
+                        normalize_yyyymmdd(std::str::from_utf8(s).unwrap_or(""))
                     }
                     rusqlite::types::ValueRef::Integer(i) => {
-                        // Convert Excel serial date to ISO string
-                        excel_date_to_iso(i)
+                        date_int_to_iso(i)
                     }
                     _ => String::new()
                 };
@@ -490,11 +489,11 @@ pub fn generate_epp_report(
 
                     let date_str = match date_ref {
                         rusqlite::types::ValueRef::Text(s) => {
-                            std::str::from_utf8(s).unwrap_or("").to_string()
+                            let raw = std::str::from_utf8(s).unwrap_or("");
+                            normalize_yyyymmdd(raw)
                         }
                         rusqlite::types::ValueRef::Integer(i) => {
-                            // Convert Excel serial date to ISO string
-                            excel_date_to_iso(i)
+                            date_int_to_iso(i)
                         }
                         _ => String::new()
                     };
@@ -728,14 +727,24 @@ fn normalize_date(date_str: &str) -> String {
     trimmed.to_string()
 }
 
-/// Convert Excel serial date to ISO date string (YYYY-MM-DD)
+/// Convert an integer date value to ISO date string (YYYY-MM-DD).
 ///
-/// Excel stores dates as days since December 30, 1899 (with the 1900 leap year bug).
-/// For example, 45859 represents July 1, 2025.
-fn excel_date_to_iso(excel_serial: i64) -> String {
-    // Excel epoch is December 30, 1899 (day 0)
-    // Excel day 1 = January 1, 1900
-    if let Some(duration) = Duration::try_days(excel_serial) {
+/// Handles two formats:
+/// - YYYYMMDD integers (e.g., 20250306) — produced by recent XLSX imports
+/// - Excel serial dates (e.g., 45859) — produced by older imports
+fn date_int_to_iso(value: i64) -> String {
+    // Check if this looks like a YYYYMMDD integer
+    if value >= 19000101 && value <= 21001231 {
+        let year = (value / 10000) as i32;
+        let month = ((value / 100) % 100) as u32;
+        let day = (value % 100) as u32;
+        if let Some(_date) = NaiveDate::from_ymd_opt(year, month, day) {
+            return format!("{:04}-{:02}-{:02}", year, month, day);
+        }
+    }
+
+    // Otherwise treat as Excel serial date
+    if let Some(duration) = Duration::try_days(value) {
         if let Some(date) = NaiveDate::from_ymd_opt(1899, 12, 30) {
             if let Some(result) = date.checked_add_signed(duration) {
                 return result.format("%Y-%m-%d").to_string();
@@ -745,9 +754,25 @@ fn excel_date_to_iso(excel_serial: i64) -> String {
     String::new()
 }
 
+/// Normalize a date string that might be in YYYYMMDD format (no separators).
+/// Converts "20250306" → "2025-03-06". Passes through other formats unchanged.
+fn normalize_yyyymmdd(s: &str) -> String {
+    let trimmed = s.trim();
+    if trimmed.len() == 8 && trimmed.chars().all(|c| c.is_ascii_digit()) {
+        let year: i32 = trimmed[..4].parse().unwrap_or(0);
+        let month: u32 = trimmed[4..6].parse().unwrap_or(0);
+        let day: u32 = trimmed[6..8].parse().unwrap_or(0);
+        if year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31 {
+            return format!("{:04}-{:02}-{:02}", year, month, day);
+        }
+    }
+    s.to_string()
+}
+
 /// Parse a date string into a NaiveDate, trying multiple formats
 fn parse_date_flexible(date_str: &str) -> Option<chrono::NaiveDate> {
-    let normalized = normalize_date(date_str);
+    let prenormalized = normalize_yyyymmdd(date_str);
+    let normalized = normalize_date(&prenormalized);
 
     chrono::NaiveDate::parse_from_str(&normalized, "%Y-%m-%d")
         .or_else(|_| chrono::NaiveDate::parse_from_str(&normalized, "%d/%m/%Y"))

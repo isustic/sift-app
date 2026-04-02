@@ -8,7 +8,7 @@ import {
     GitCompare, Download, CheckCircle2, Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { safeInvoke } from "@/lib/tauri";
+import { safeInvoke, safeConfirm } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, X } from "lucide-react";
@@ -144,6 +144,7 @@ export default function SettingsPage() {
     const [isDeleting, setIsDeleting] = useState<number | null>(null);
     const [editingDatasetId, setEditingDatasetId] = useState<number | null>(null);
     const [editValue, setEditValue] = useState<string>("");
+    const [isClearing, setIsClearing] = useState(false);
 
     // Analysis settings
     const [settings, setSettings] = useState({
@@ -184,8 +185,9 @@ export default function SettingsPage() {
 
     const handleDeleteDataset = async (datasetId: number, datasetName: string) => {
         // Confirm before deleting
-        const confirmed = window.confirm(
-            `Are you sure you want to delete "${datasetName}"? This action cannot be undone.`
+        const confirmed = await safeConfirm(
+            `Are you sure you want to delete "${datasetName}"? This action cannot be undone.`,
+            "Delete Dataset"
         );
         if (!confirmed) return;
 
@@ -198,6 +200,29 @@ export default function SettingsPage() {
             alert("Failed to delete dataset. Please try again.");
         } finally {
             setIsDeleting(null);
+        }
+    };
+
+    const handleClearAll = async () => {
+        const confirmed = await safeConfirm(
+            "Are you sure you want to clear ALL data? This will delete every dataset, report, template, and query history. This action cannot be undone.",
+            "Clear All Data"
+        );
+        if (!confirmed) return;
+
+        setIsClearing(true);
+        try {
+            await safeInvoke("clear_database");
+            setDatasets([]);
+            setStats(null);
+            setQueryHistory([]);
+            setFavorites([]);
+            setActivity([]);
+        } catch (error) {
+            console.error("Failed to clear database:", error);
+            alert("Failed to clear database. Please try again.");
+        } finally {
+            setIsClearing(false);
         }
     };
 
@@ -509,9 +534,32 @@ export default function SettingsPage() {
                                 <p className="text-xs text-muted-foreground/60">Import Excel files from the Data Explorer</p>
                             </div>
                         )}
-                    </section>
 
-                    {/* ── Favorites ── */}
+                        {/* Clear All Data */}
+                        {datasets.length > 0 && (
+                            <div className="mt-3 flex justify-end">
+                                <Button
+                                    onClick={handleClearAll}
+                                    disabled={isClearing}
+                                    variant="outline"
+                                    className="border-destructive/30 text-destructive/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+                                    size="sm"
+                                >
+                                    {isClearing ? (
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                            Clearing...
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-1.5">
+                                            <AlertTriangle size={14} />
+                                            Clear All Data
+                                        </span>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+                    </section>
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Star className="w-4 h-4 text-accent" />
@@ -655,6 +703,38 @@ export default function SettingsPage() {
                         <UpdateSettings />
                     </section>
 
+                    {/* ── Danger Zone ── */}
+                    <section className="space-y-4 pt-6 border-t border-destructive/20">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                            <h2 className="text-sm font-medium text-destructive">Danger Zone</h2>
+                        </div>
+
+                        <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-4">
+                            <p className="text-xs text-muted-foreground">
+                                Permanently delete all data. This includes every dataset, report template, query history, and favorite. Subgroup data is preserved.
+                            </p>
+                            <Button
+                                onClick={handleClearAll}
+                                disabled={isClearing}
+                                variant="destructive"
+                                size="sm"
+                            >
+                                {isClearing ? (
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                        Clearing...
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1.5">
+                                        <Trash2 size={14} />
+                                        Clear All Data
+                                    </span>
+                                )}
+                            </Button>
+                        </div>
+                    </section>
+
                     {/* ── Appearance ── */}
                     <section className="space-y-3">
                         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -695,7 +775,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>Sift</span>
                             <span className="w-px h-3 bg-border/50" />
-                            <span className="font-data">Version 1.0.8</span>
+                            <span className="font-data">Version 1.0.9</span>
                         </div>
                     </section>
                 </div>
