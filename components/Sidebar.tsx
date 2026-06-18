@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft, FileSpreadsheet, Home, List, GitCompare } from "lucide-react";
+import { Sprout, BarChart3, Settings2, Database, History, PanelLeftClose, PanelLeft, FileSpreadsheet, Home, List, GitCompare, Table2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -11,7 +11,9 @@ const navItems = [
     { href: "/upload", label: "Raw data", icon: Database },
     { href: "/analysis", label: "Analysis", icon: GitCompare },
     { href: "/report", label: "Report builder", icon: BarChart3 },
-    { href: "/epp", label: "EPP", icon: FileSpreadsheet },
+    { href: "/epp", label: "EPro", icon: FileSpreadsheet },
+    { href: "/ty-reports", label: "TY Reports", icon: Table2 },
+    { href: "/clients", label: "Clients", icon: Users },
     { href: "/subgroups", label: "Subgroups", icon: List },
     { href: "/istoric", label: "History", icon: History },
     { href: "/settings", label: "Settings", icon: Settings2 },
@@ -175,7 +177,7 @@ export function Sidebar() {
                         collapsed ? "w-0 h-0 opacity-0" : "opacity-100"
                     )}>
                         <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-body">Version</p>
-                        <p className="text-xs font-data text-muted-foreground">v1.0.9</p>
+                        <p className="text-xs font-data text-muted-foreground">v1.1.1</p>
                     </div>
 
                     <div className={cn(

@@ -775,7 +775,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>Sift</span>
                             <span className="w-px h-3 bg-border/50" />
-                            <span className="font-data">Version 1.0.9</span>
+                            <span className="font-data">Version 1.1.1</span>
                         </div>
                     </section>
                 </div>

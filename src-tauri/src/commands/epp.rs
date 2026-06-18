@@ -1,4 +1,4 @@
-//! EPP (Agent Performance) report commands.
+//! EPro (Agent Performance) report commands.
 //!
 //! Generates quarterly reports grouped by client for a specific agent.
 
@@ -6,6 +6,7 @@ use crate::db::DbState;
 use chrono::{Datelike, NaiveDate, Duration};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use tauri::State;
 
 /// Unique agent information with client count
@@ -15,7 +16,7 @@ pub struct AgentInfo {
     pub client_count: i64,
 }
 
-/// Single row in the EPP report
+/// Single row in the EPro report
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EppRow {
     pub client: String,
@@ -29,6 +30,9 @@ pub struct EppRow {
     pub total: f64,         // same as reducere
     pub program: String,    // program name or "-"
     pub procent: String,    // percentage or "-"
+    pub total_2025: f64,          // Total 2025 from TY reports
+    pub vs_2025_2026: f64,        // total_anual - total_2025
+    pub bonus_crestere: f64,      // 2% if vs_2025_2026 > 0, else 0%
     pub culoare_decolorare_q1: f64,
     pub culoare_decolorare_q2: f64,
     pub culoare_decolorare_q3: f64,
@@ -38,10 +42,14 @@ pub struct EppRow {
     pub haircare_tehnic_q3: f64,
     pub haircare_tehnic_q4: f64,
     pub suma_bonus: f64,
-    pub suma_bonus_reducere: f64,  // Suma bonus - 7.5%
+    pub suma_bonus_reducere: f64,  // Suma calcul bonus - 7.5%
+    pub total_bonus: f64,          // procent + bonus_crestere
+    pub suma_voucher: f64,         // (total_bonus / 100) * suma_bonus_reducere
+    pub is_combined: bool,
+    pub source_clients: Vec<String>,
 }
 
-/// Complete EPP report result
+/// Complete EPro report result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EppReportResult {
     pub agent_name: String,
@@ -175,7 +183,7 @@ pub fn get_agents_for_dataset(db: State<'_, DbState>, dataset_id: i64) -> Result
     Ok(rows)
 }
 
-/// Generate EPP report for a specific agent, year, and dataset
+/// Generate EPro report for a specific agent, year, and dataset
 #[tauri::command]
 pub fn generate_epp_report(
     agent_name: String,
@@ -353,7 +361,7 @@ pub fn generate_epp_report(
                 }
 
                 // Always create an entry for this client, even if value is 0
-                let entry = client_data.entry(client.clone()).or_insert_with(|| ClientData {
+                let entry = client_data.entry(client.trim().to_lowercase()).or_insert_with(|| ClientData {
                     client: client.clone(),
                     agent: agent_name.clone(),
                     q1: 0.0,
@@ -534,7 +542,7 @@ pub fn generate_epp_report(
                     }
 
                     // Always create entry, even with zero value
-                    let entry = client_data.entry(client.clone()).or_insert_with(|| ClientData {
+                    let entry = client_data.entry(client.trim().to_lowercase()).or_insert_with(|| ClientData {
                         client: client.clone(),
                         agent: agent_name.clone(),
                         q1: 0.0,
@@ -623,6 +631,77 @@ pub fn generate_epp_report(
         }
     }
 
+    // Look up TY 2025 totals for this agent
+    let mut ty_totals = lookup_ty_2025_totals(&conn, &agent_name);
+
+    // Load client combinations for this agent
+    let combinations = load_combinations_for_agent(&conn, &agent_name);
+    let mut combined_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut member_keys: HashSet<String> = HashSet::new();
+
+    for combo in &combinations {
+        let member_keys_list: Vec<String> = combo.members.iter().map(|m| m.client_key.clone()).collect();
+        let display_name = combo.members.iter()
+            .map(|m| m.client_name.as_str())
+            .collect::<Vec<_>>()
+            .join(" + ");
+
+        for key in &member_keys_list {
+            member_keys.insert(key.clone());
+        }
+        combined_map.insert(display_name, member_keys_list);
+    }
+
+    // Merge combination totals from raw client data
+    for (display_name, member_keys_list) in &combined_map {
+        let mut merged = ClientData {
+            client: display_name.clone(),
+            agent: agent_name.clone(),
+            q1: 0.0,
+            q2: 0.0,
+            q3: 0.0,
+            q4: 0.0,
+            culoare_decolorare_q1: 0.0,
+            culoare_decolorare_q2: 0.0,
+            culoare_decolorare_q3: 0.0,
+            culoare_decolorare_q4: 0.0,
+            haircare_tehnic_q1: 0.0,
+            haircare_tehnic_q2: 0.0,
+            haircare_tehnic_q3: 0.0,
+            haircare_tehnic_q4: 0.0,
+        };
+
+        for key in member_keys_list {
+            if let Some(member_data) = client_data.get(key) {
+                merged.q1 += member_data.q1;
+                merged.q2 += member_data.q2;
+                merged.q3 += member_data.q3;
+                merged.q4 += member_data.q4;
+                merged.culoare_decolorare_q1 += member_data.culoare_decolorare_q1;
+                merged.culoare_decolorare_q2 += member_data.culoare_decolorare_q2;
+                merged.culoare_decolorare_q3 += member_data.culoare_decolorare_q3;
+                merged.culoare_decolorare_q4 += member_data.culoare_decolorare_q4;
+                merged.haircare_tehnic_q1 += member_data.haircare_tehnic_q1;
+                merged.haircare_tehnic_q2 += member_data.haircare_tehnic_q2;
+                merged.haircare_tehnic_q3 += member_data.haircare_tehnic_q3;
+                merged.haircare_tehnic_q4 += member_data.haircare_tehnic_q4;
+            }
+        }
+
+        client_data.insert(display_name.clone(), merged);
+
+        // Merge TY 2025 totals for the combination
+        let summed_ty: f64 = member_keys_list.iter()
+            .map(|k| ty_totals.get(k).copied().unwrap_or(0.0))
+            .sum();
+        ty_totals.insert(display_name.to_lowercase(), summed_ty);
+    }
+
+    // Remove individual member rows (they are now represented by combined rows)
+    for key in &member_keys {
+        client_data.remove(key);
+    }
+
     // Convert to EppRow with calculations
     let mut rows: Vec<EppRow> = client_data
         .into_values()
@@ -633,12 +712,30 @@ pub fn generate_epp_report(
 
             let (program, procent) = calculate_program(total);
 
-            // Calculate suma_bonus (sum of all C+D and HT quarterly values)
+            // Calculate suma_bonus (sum of all Colorare + Decolorare and Tehnic quarterly values)
             let suma_bonus = data.culoare_decolorare_q1 + data.culoare_decolorare_q2
                 + data.culoare_decolorare_q3 + data.culoare_decolorare_q4
                 + data.haircare_tehnic_q1 + data.haircare_tehnic_q2
                 + data.haircare_tehnic_q3 + data.haircare_tehnic_q4;
             let suma_bonus_reducere = suma_bonus * 0.925; // 7.5% reduction
+
+        let total_2025 = ty_totals.get(&data.client.trim().to_lowercase()).copied().unwrap_or(0.0);
+        let vs_2025_2026 = total_anual - total_2025;
+        let bonus_crestere = if vs_2025_2026 > 0.0 { 2.0 } else { 0.0 };
+
+        let procent_num = procent
+            .trim_end_matches('%')
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let total_bonus = procent_num + bonus_crestere;
+        let suma_voucher = (total_bonus / 100.0) * suma_bonus_reducere;
+
+            let is_comb = combined_map.contains_key(&data.client);
+            let source = if is_comb {
+                combined_map.get(&data.client).cloned().unwrap_or_default()
+            } else {
+                vec![]
+            };
 
             EppRow {
                 client: data.client,
@@ -652,6 +749,9 @@ pub fn generate_epp_report(
                 total,
                 program,
                 procent,
+                total_2025,
+                vs_2025_2026,
+                bonus_crestere,
                 culoare_decolorare_q1: data.culoare_decolorare_q1,
                 culoare_decolorare_q2: data.culoare_decolorare_q2,
                 culoare_decolorare_q3: data.culoare_decolorare_q3,
@@ -662,6 +762,10 @@ pub fn generate_epp_report(
                 haircare_tehnic_q4: data.haircare_tehnic_q4,
                 suma_bonus,
                 suma_bonus_reducere,
+                total_bonus,
+                suma_voucher,
+                is_combined: is_comb,
+                source_clients: source,
             }
         })
         .collect();
@@ -803,9 +907,143 @@ fn parse_quarter(date_str: &str, report_year: i32) -> Option<u32> {
     }
 }
 
+/// Strip Romanian diacritics and lowercase for case-insensitive matching.
+fn normalize_for_match(s: &str) -> String {
+    s.to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'ă' | 'â' | 'á' | 'à' | 'ä' | 'ã' | 'å' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'í' | 'ì' | 'ï' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' => 'u',
+            'ș' | 'ş' => 's',
+            'ț' | 'ţ' => 't',
+            'ñ' => 'n',
+            'ç' => 'c',
+            _ => c,
+        })
+        .collect()
+}
+
+/// Look up Total 2025 values from TY reports, keyed by (agent_name, client_name).
+///
+/// Scans all TY report dynamic tables that have Agent, Client, and Total columns.
+/// Matches columns by checking if the normalized (lowercase, diacritic-stripped)
+/// name contains keywords: "agent" for agent, "client" for client, "total" for total.
+fn lookup_ty_2025_totals(conn: &rusqlite::Connection, agent_name: &str) -> HashMap<String, f64> {
+    let mut totals: HashMap<String, f64> = HashMap::new();
+
+    let ty_report_query = "SELECT table_name FROM ty_reports WHERE table_name IS NOT NULL";
+    let mut stmt = match conn.prepare(ty_report_query) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("DEBUG TY: Failed to query ty_reports: {e}");
+            return totals;
+        }
+    };
+
+    let table_names: Vec<String> = match stmt.query_map([], |row| row.get::<_, String>(0)) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(e) => {
+            eprintln!("DEBUG TY: Failed to read table names: {e}");
+            return totals;
+        }
+    };
+
+    eprintln!("DEBUG TY: Found {} TY report tables for agent '{}'", table_names.len(), agent_name);
+
+    for table_name in &table_names {
+        let pragma_query = format!("PRAGMA table_info(\"{}\")", table_name);
+        let mut cols_stmt = match conn.prepare(&pragma_query) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("DEBUG TY: Failed to PRAGMA table '{}': {e}", table_name);
+                continue;
+            }
+        };
+
+        let column_names: Vec<String> = match cols_stmt.query_map([], |row| row.get::<_, String>(1)) {
+            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+            Err(e) => {
+                eprintln!("DEBUG TY: Failed to read columns for '{}': {e}", table_name);
+                continue;
+            }
+        };
+
+        eprintln!("DEBUG TY: Table '{}' has columns: {:?}", table_name, column_names);
+
+        let normalized: Vec<String> = column_names.iter().map(|c| normalize_for_match(c)).collect();
+
+        // Find agent column: normalized name contains "agent" but NOT "nume_agent" sub-pattern
+        // We use simple contains for "agent" which covers "agent", "agent_name", "nume_agent" etc.
+        let agent_idx = normalized.iter().position(|c| c.contains("agent"));
+        let client_idx = normalized.iter().position(|c| c.contains("client"));
+        let total_idx = normalized.iter().position(|c| c.contains("total") || c.contains("valoare"));
+
+        if let (Some(a_idx), Some(c_idx), Some(t_idx)) = (agent_idx, client_idx, total_idx) {
+            let agent_actual = &column_names[a_idx];
+            let client_actual = &column_names[c_idx];
+            let total_actual = &column_names[t_idx];
+
+            eprintln!(
+                "DEBUG TY: Table '{}' matched — agent='{}', client='{}', total='{}'",
+                table_name, agent_actual, client_actual, total_actual
+            );
+
+            // Case-insensitive agent matching
+            let query = format!(
+                "SELECT \"{client_actual}\", \"{total_actual}\" FROM \"{table_name}\" WHERE LOWER(\"{agent_actual}\") = LOWER(?1)"
+            );
+
+            let mut data_stmt = match conn.prepare(&query) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("DEBUG TY: Failed to prepare query for '{}': {e}", table_name);
+                    continue;
+                }
+            };
+
+            let rows = match data_stmt.query_map(params![agent_name], |row| {
+                let client: String = row.get(0)?;
+                let total_val: f64 = row.get(1).unwrap_or(0.0);
+                Ok((client, total_val))
+            }) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("DEBUG TY: Failed to query data from '{}': {e}", table_name);
+                    continue;
+                }
+            };
+
+            let mut match_count = 0;
+            for row in rows {
+                if let Ok((client, total_val)) = row {
+                    let key = client.trim().to_lowercase();
+                    eprintln!(
+                        "DEBUG TY: Row match — client='{}', total={:.2}",
+                        client, total_val
+                    );
+                    totals.insert(key, total_val);
+                    match_count += 1;
+                }
+            }
+            eprintln!("DEBUG TY: Table '{}' matched {} rows for agent '{}'", table_name, match_count, agent_name);
+        } else {
+            eprintln!(
+                "DEBUG TY: Table '{}' skipped — agent_idx={:?}, client_idx={:?}, total_idx={:?}",
+                table_name, agent_idx, client_idx, total_idx
+            );
+        }
+    }
+
+    eprintln!("DEBUG TY: Final totals map has {} entries", totals.len());
+    totals
+}
+
 /// Calculate program tier and percentage based on total amount
 fn calculate_program(total: f64) -> (String, String) {
-    if total < 15000.0 {
+    if total < 18000.0 {
         ("-".to_string(), "-".to_string())
     } else if total <= 29999.0 {
         ("Starter 🌱 5%".to_string(), "5%".to_string())
@@ -818,4 +1056,55 @@ fn calculate_program(total: f64) -> (String, String) {
     } else {
         ("Prestige 🌟 10%".to_string(), "10%".to_string())
     }
+}
+
+/// Load client combinations for a given agent from the database
+fn load_combinations_for_agent(
+    conn: &rusqlite::Connection,
+    agent_name: &str,
+) -> Vec<LoadedCombination> {
+    let agent_key = agent_name.trim().to_lowercase();
+
+    let mut stmt = match conn.prepare(
+        "SELECT cc.id, ccm.client_name, ccm.client_key
+         FROM client_combinations cc
+         JOIN client_combination_members ccm ON ccm.combination_id = cc.id
+         WHERE cc.agent_key = ?1
+         ORDER BY cc.id, ccm.display_order",
+    ) {
+        Ok(s) => s,
+        Err(_) => return vec![],
+    };
+
+    let rows: Vec<(i64, String, String)> = match stmt.query_map(params![agent_key], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    }) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => return vec![],
+    };
+
+    let mut combos: Vec<LoadedCombination> = vec![];
+    let mut current_id: i64 = -1;
+
+    for (id, client_name, client_key) in rows {
+        if id != current_id {
+            combos.push(LoadedCombination { members: vec![] });
+            current_id = id;
+        }
+        combos.last_mut().unwrap().members.push(LoadedMember {
+            client_name,
+            client_key,
+        });
+    }
+
+    combos
+}
+
+struct LoadedCombination {
+    members: Vec<LoadedMember>,
+}
+
+struct LoadedMember {
+    client_name: String,
+    client_key: String,
 }

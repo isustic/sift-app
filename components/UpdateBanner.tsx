@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { X, Download } from "lucide-react";
 import { checkForUpdates } from "@/lib/update-check";
 
-import { open } from '@tauri-apps/plugin-shell';
-
 interface UpdateBannerProps {
   currentVersion: string;
 }
@@ -34,11 +32,25 @@ export function UpdateBanner({ currentVersion }: UpdateBannerProps) {
 
   const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
+    const url = updateInfo.downloadUrl;
+
     try {
-      await open(updateInfo.downloadUrl);
-      setDismissed(true); // optionally dismiss it
+      const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+      if (isTauri) {
+        const { open } = await import("@tauri-apps/plugin-shell");
+        await open(url);
+      } else {
+        const opened = window.open(url, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          window.location.assign(url);
+        }
+      }
+
+      setDismissed(true);
     } catch (error) {
       console.error("Failed to open update URL", error);
+      window.location.assign(url);
     }
   };
 

@@ -19,8 +19,25 @@ pub fn clear_database(db: State<'_, DbState>) -> Result<(), String> {
         .filter_map(|t| t.ok())
         .collect();
 
+    // Collect all TY report table names before wiping metadata
+    let mut stmt = conn
+        .prepare("SELECT table_name FROM ty_reports")
+        .map_err(|e| format!("Query error: {e}"))?;
+    let ty_tables: Vec<String> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| format!("Read error: {e}"))?
+        .filter_map(|t| t.ok())
+        .collect();
+
     // Drop each dataset table
     for table in &tables {
+        let safe = sanitize_col_name(table);
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{safe}\";"))
+            .map_err(|e| format!("Drop table error: {e}"))?;
+    }
+
+    // Drop each TY report table
+    for table in &ty_tables {
         let safe = sanitize_col_name(table);
         conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{safe}\";"))
             .map_err(|e| format!("Drop table error: {e}"))?;
@@ -30,6 +47,8 @@ pub fn clear_database(db: State<'_, DbState>) -> Result<(), String> {
     conn.execute_batch(
         "DELETE FROM columns;
          DELETE FROM datasets;
+         DELETE FROM ty_report_columns;
+         DELETE FROM ty_reports;
          DELETE FROM report_templates;
          DELETE FROM analytics_events;
          DELETE FROM query_history;

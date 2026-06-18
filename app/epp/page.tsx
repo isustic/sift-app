@@ -14,7 +14,7 @@ interface Dataset {
   name: string;
 }
 
-function EPPPageContent() {
+function EProPageContent() {
   const searchParams = useSearchParams();
 
   // Dataset state
@@ -132,7 +132,7 @@ function EPPPageContent() {
   const filteredRows = reportData
     ? reportData.rows.filter((row) =>
         showQualifiedOnly
-          ? row.total >= 15000 && row.program !== "-" && row.program !== ""
+          ? row.total >= 18000 && row.program !== "-" && row.program !== ""
           : true
       )
     : [];
@@ -162,7 +162,7 @@ function EPPPageContent() {
         <div className="px-4 pt-4 pb-2 border-b border-border/50">
           <h1 className="text-sm font-semibold flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-primary" />
-            EPP Reports
+            EPro Reports
           </h1>
           <p className="text-[10px] text-muted-foreground mb-3">
             Select dataset and agent
@@ -224,7 +224,7 @@ function EPPPageContent() {
                 <div>
                   <h2 className="text-base font-semibold">{selectedAgent}</h2>
                   <p className="text-[11px] text-muted-foreground">
-                    EPP Report {reportData.year}
+                    EPro Report {reportData.year}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -298,7 +298,7 @@ function EPPPageContent() {
               </div>
               <h2 className="text-lg font-semibold">Select an Agent</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Choose a dataset and an agent to generate their quarterly EPP report
+                Choose a dataset and an agent to generate their quarterly EPro report
               </p>
             </div>
           </div>
@@ -308,14 +308,14 @@ function EPPPageContent() {
   );
 }
 
-export default function EPPPage() {
+export default function EProPage() {
   return (
     <Suspense fallback={
       <div className="flex h-full items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     }>
-      <EPPPageContent />
+      <EProPageContent />
     </Suspense>
   );
 }

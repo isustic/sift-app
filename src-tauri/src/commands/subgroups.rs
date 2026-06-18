@@ -364,6 +364,21 @@ pub fn delete_subgroup(cod: String, db: State<'_, DbState>) -> Result<(), String
     Ok(())
 }
 
+/// Delete all subgroups
+#[tauri::command]
+pub fn delete_all_subgroups(db: State<'_, DbState>) -> Result<usize, String> {
+    let conn = db.0.lock().map_err(|_| "DB lock error")?;
+
+    let count: usize = conn
+        .query_row("SELECT COUNT(*) FROM subgroups", [], |r| r.get::<_, i64>(0))
+        .map_err(|e| e.to_string())? as usize;
+
+    conn.execute("DELETE FROM subgroups", [])
+        .map_err(|e| e.to_string())?;
+
+    Ok(count)
+}
+
 /// Import subgroups from an Excel file
 #[tauri::command]
 pub fn import_subgroups_from_excel(path: String, db: State<'_, DbState>) -> Result<usize, String> {
@@ -469,6 +484,79 @@ pub fn import_subgroups_from_excel(path: String, db: State<'_, DbState>) -> Resu
     insert_subgroups(parsed_data, db)?;
 
     Ok(count)
+}
+
+/// Export all subgroups to an Excel file
+#[tauri::command]
+pub fn export_subgroups_to_excel(path: String, db: State<'_, DbState>) -> Result<String, String> {
+    let conn = db.0.lock().map_err(|_| "DB lock error")?;
+
+    let mut stmt = conn
+        .prepare("SELECT cod, denumire, grupa, subgrupa FROM subgroups ORDER BY cod")
+        .map_err(|e| e.to_string())?;
+
+    let rows: Vec<Subgroup> = stmt
+        .query_map([], |row| {
+            Ok(Subgroup {
+                cod: row.get(0)?,
+                denumire: row.get(1)?,
+                grupa: row.get(2)?,
+                subgrupa: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    use rust_xlsxwriter::{Format, FormatBorder, Workbook};
+
+    let mut workbook = Workbook::new();
+    let sheet = workbook.add_worksheet();
+
+    let header_fmt = Format::new()
+        .set_bold()
+        .set_border(FormatBorder::Thin)
+        .set_background_color(0x4472C4)
+        .set_font_color(0xFFFFFF);
+
+    let data_fmt = Format::new().set_border(FormatBorder::Thin);
+
+    sheet
+        .write_with_format(0, 0, "cod", &header_fmt)
+        .map_err(|e| format!("Write error: {e}"))?;
+    sheet
+        .write_with_format(0, 1, "denumire", &header_fmt)
+        .map_err(|e| format!("Write error: {e}"))?;
+    sheet
+        .write_with_format(0, 2, "grupa", &header_fmt)
+        .map_err(|e| format!("Write error: {e}"))?;
+    sheet
+        .write_with_format(0, 3, "subgrupa", &header_fmt)
+        .map_err(|e| format!("Write error: {e}"))?;
+
+    for (idx, sg) in rows.iter().enumerate() {
+        let row = (idx + 1) as u32;
+        sheet
+            .write_with_format(row, 0, sg.cod.as_str(), &data_fmt)
+            .map_err(|e| format!("Write error: {e}"))?;
+        sheet
+            .write_with_format(row, 1, sg.denumire.as_str(), &data_fmt)
+            .map_err(|e| format!("Write error: {e}"))?;
+        sheet
+            .write_with_format(row, 2, sg.grupa.as_str(), &data_fmt)
+            .map_err(|e| format!("Write error: {e}"))?;
+        sheet
+            .write_with_format(row, 3, sg.subgrupa.as_str(), &data_fmt)
+            .map_err(|e| format!("Write error: {e}"))?;
+    }
+
+    sheet.autofit();
+
+    workbook
+        .save(&path)
+        .map_err(|e| format!("Save error: {e}"))?;
+
+    Ok(path)
 }
 
 /// Helper function to get cell value as String

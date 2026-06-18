@@ -60,7 +60,7 @@ Registered in `src-tauri/src/lib.rs` under `invoke_handler`. Key command modules
 | `formula` | Custom formula fields (save/test/list/delete) |
 | `blend` | Cross-dataset data blending |
 | `export` | Export reports to XLSX |
-| `epp` | EPP-specific agent reports |
+| `epp` | EPro-specific agent reports |
 | `subgroups` | Subgroup CRUD + Excel import |
 | `templates` | Save/load/delete report templates |
 | `analytics` | Usage tracking and query history |
@@ -78,7 +78,7 @@ Registered in `src-tauri/src/lib.rs` under `invoke_handler`. Key command modules
 | `/analysis/trends` | Trend analysis with sparkline charts |
 | `/analysis/blend` | Cross-dataset blending |
 | `/report` | 7-step report builder (columns → group → calc → filter → sort → results → charts) |
-| `/epp` | EPP agent reporting |
+| `/epp` | EPro agent reporting |
 | `/subgroups` | Subgroup management |
 | `/istoric` | Query history |
 | `/settings` | App settings |

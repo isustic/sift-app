@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { safeInvoke } from "@/lib/tauri";
 import {
   Dialog,
   DialogContent,
@@ -12,23 +12,30 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Trash2, X, TriangleAlert } from "lucide-react";
 
-interface DeleteDialogProps {
+interface TyDeleteRowDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  cod: string;
+  reportId: number;
+  rowId: number;
 }
 
-export function DeleteDialog({ open, onClose, onConfirm, cod }: DeleteDialogProps) {
+export function TyDeleteRowDialog({
+  open,
+  onClose,
+  onConfirm,
+  reportId,
+  rowId,
+}: TyDeleteRowDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await invoke("delete_subgroup", { cod });
+      await safeInvoke("delete_ty_report_row", { reportId, rowId });
       onConfirm();
     } catch (err) {
-      console.error("Failed to delete subgroup:", err);
+      console.error("Failed to delete row:", err);
       setIsDeleting(false);
     }
   };
@@ -39,13 +46,13 @@ export function DeleteDialog({ open, onClose, onConfirm, cod }: DeleteDialogProp
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TriangleAlert className="w-5 h-5 text-destructive" />
-            Delete subgroup
+            Delete row
           </DialogTitle>
         </DialogHeader>
 
         <div className="py-4">
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete <strong>&apos;{cod}&apos;</strong>? This action cannot be undone.
+            Are you sure you want to delete row <strong>#{rowId}</strong>? This action cannot be undone.
           </p>
         </div>
 

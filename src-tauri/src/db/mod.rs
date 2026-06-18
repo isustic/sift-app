@@ -73,6 +73,44 @@ pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection> {
             grupa       TEXT    NOT NULL,
             subgrupa    TEXT    NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS ty_reports (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                TEXT    NOT NULL,
+            original_file_name  TEXT    NOT NULL,
+            file_path           TEXT    NOT NULL,
+            table_name          TEXT    NOT NULL,
+            row_count           INTEGER NOT NULL DEFAULT 0,
+            created_at          TEXT    NOT NULL,
+            updated_at          TEXT    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ty_report_columns (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id     INTEGER NOT NULL REFERENCES ty_reports(id) ON DELETE CASCADE,
+            name          TEXT    NOT NULL,
+            display_name  TEXT,
+            col_type      TEXT    NOT NULL DEFAULT 'TEXT',
+            display_order INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS client_combinations (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name  TEXT    NOT NULL,
+            agent_key   TEXT    NOT NULL,
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS client_combination_members (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            combination_id  INTEGER NOT NULL REFERENCES client_combinations(id) ON DELETE CASCADE,
+            agent_key       TEXT    NOT NULL,
+            client_name     TEXT    NOT NULL,
+            client_key      TEXT    NOT NULL,
+            display_order   INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(agent_key, client_key)
+        );
     ")?;
 
     // Run analysis workspace migrations

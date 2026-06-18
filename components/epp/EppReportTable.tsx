@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getExpandedRowModel,
   SortingState,
   ColumnDef,
   flexRender,
+  Row,
 } from "@tanstack/react-table";
-import { ChevronsUpDown, ChevronUp, ChevronDown, Download, Search, X, Check } from "lucide-react";
+import { ChevronsUpDown, ChevronUp, ChevronDown, Download, Search, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,9 @@ export interface EppRow {
   total: number;
   program: string;
   procent: string;
+  total_2025: number;
+  vs_2025_2026: number;
+  bonus_crestere: number;
   culoare_decolorare_q1: number;
   culoare_decolorare_q2: number;
   culoare_decolorare_q3: number;
@@ -39,6 +44,10 @@ export interface EppRow {
   haircare_tehnic_q4: number;
   suma_bonus: number;
   suma_bonus_reducere: number;
+  total_bonus: number;
+  suma_voucher: number;
+  is_combined: boolean;
+  source_clients: string[];
 }
 
 interface EppReportTableProps {
@@ -66,10 +75,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
   const filteredRows = useMemo(() => {
     let result = rows;
 
-    // Filter by qualified status (Total >= 15000 AND has a program)
+    // Filter by qualified status (Total >= 18000 AND has a program)
     if (showQualifiedOnly) {
       result = result.filter((row) =>
-        row.total >= 15000 && row.program !== "-" && row.program !== ""
+        row.total >= 18000 && row.program !== "-" && row.program !== ""
       );
     }
 
@@ -95,20 +104,25 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "Total Q3": row.q3_total,
         "Total Q4": row.q4_total,
         "Total Anual": row.total_anual,
-        "Reducere 7.5%": row.reducere,
-        Total: row.total,
+        "Total 7.5%": row.reducere,
+        "Total incadrare": row.total,
         "Program incadrare": row.program,
         "Procent incadrare": row.procent,
-        "C+D Q1": row.culoare_decolorare_q1,
-        "C+D Q2": row.culoare_decolorare_q2,
-        "C+D Q3": row.culoare_decolorare_q3,
-        "C+D Q4": row.culoare_decolorare_q4,
-        "HT Q1": row.haircare_tehnic_q1,
-        "HT Q2": row.haircare_tehnic_q2,
-        "HT Q3": row.haircare_tehnic_q3,
-        "HT Q4": row.haircare_tehnic_q4,
+        "Total 2025": row.total_2025,
+        "2025 vs 2026": row.vs_2025_2026,
+        "Bonus crestere": row.bonus_crestere,
+        "Culoare + Decolorare Q1": row.culoare_decolorare_q1,
+        "Culoare + Decolorare Q2": row.culoare_decolorare_q2,
+        "Culoare + Decolorare Q3": row.culoare_decolorare_q3,
+        "Culoare + Decolorare Q4": row.culoare_decolorare_q4,
+        "Tehnic Q1": row.haircare_tehnic_q1,
+        "Tehnic Q2": row.haircare_tehnic_q2,
+        "Tehnic Q3": row.haircare_tehnic_q3,
+        "Tehnic Q4": row.haircare_tehnic_q4,
         "Suma bonus": row.suma_bonus,
-        "Suma bonus - 7.5%": row.suma_bonus_reducere,
+        "Suma calcul bonus - 7.5%": row.suma_bonus_reducere,
+        "Total bonus": row.total_bonus,
+        "Suma voucher": row.suma_voucher,
       }));
 
       const columns = [
@@ -119,26 +133,31 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         "Total Q3",
         "Total Q4",
         "Total Anual",
-        "Reducere 7.5%",
-        "Total",
+        "Total 7.5%",
+        "Total incadrare",
         "Program incadrare",
         "Procent incadrare",
-        "C+D Q1",
-        "C+D Q2",
-        "C+D Q3",
-        "C+D Q4",
-        "HT Q1",
-        "HT Q2",
-        "HT Q3",
-        "HT Q4",
+        "Total 2025",
+        "2025 vs 2026",
+        "Bonus crestere",
+        "Culoare + Decolorare Q1",
+        "Culoare + Decolorare Q2",
+        "Culoare + Decolorare Q3",
+        "Culoare + Decolorare Q4",
+        "Tehnic Q1",
+        "Tehnic Q2",
+        "Tehnic Q3",
+        "Tehnic Q4",
         "Suma bonus",
-        "Suma bonus - 7.5%",
+        "Suma calcul bonus - 7.5%",
+        "Total bonus",
+        "Suma voucher",
       ];
 
       await invoke("export_report", {
         rows: exportRows,
         columns,
-        templateName: `EPP Report - ${agentName} - ${year}`,
+        templateName: `EPro Report - ${agentName} - ${year}`,
       });
     } catch (err) {
       console.error("Export failed:", err);
@@ -151,9 +170,40 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         id: "client",
         accessorKey: "client",
         header: "Client",
-        cell: ({ getValue }) => (
-          <span className="font-medium text-xs whitespace-nowrap">{getValue() as string}</span>
-        ),
+        cell: ({ row }) => {
+          if (row.original.is_combined) {
+            return (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    row.toggleExpanded();
+                  }}
+                  className="p-0.5 rounded hover:bg-muted/50 transition-colors"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={cn(
+                      "transition-transform",
+                      row.getIsExpanded() && "rotate-90"
+                    )}
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+                <span className="font-medium text-xs whitespace-nowrap">{row.original.client}</span>
+              </div>
+            );
+          }
+          return <span className="font-medium text-xs whitespace-nowrap">{row.original.client}</span>;
+        },
       },
       {
         id: "agent",
@@ -248,9 +298,35 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
         },
       },
       {
+        id: "total_2025",
+        accessorKey: "total_2025",
+        header: "Total 2025",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "vs_2025_2026",
+        accessorKey: "vs_2025_2026",
+        header: "2025 vs 2026",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs italic text-muted-foreground text-right">
+            {formatCurrency(getValue() as number)}
+          </span>
+        ),
+      },
+      {
+        id: "bonus_crestere",
+        accessorKey: "bonus_crestere",
+        header: "Bonus crestere",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs font-bold text-right text-emerald-600">{(getValue() as number).toFixed(0)}%</span>
+        ),
+      },
+      {
         id: "culoare_decolorare_q1",
         accessorKey: "culoare_decolorare_q1",
-        header: "C+D Q1",
+        header: "Culoare + Decolorare Q1",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -258,7 +334,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "culoare_decolorare_q2",
         accessorKey: "culoare_decolorare_q2",
-        header: "C+D Q2",
+        header: "Culoare + Decolorare Q2",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -266,7 +342,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "culoare_decolorare_q3",
         accessorKey: "culoare_decolorare_q3",
-        header: "C+D Q3",
+        header: "Culoare + Decolorare Q3",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -274,7 +350,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "culoare_decolorare_q4",
         accessorKey: "culoare_decolorare_q4",
-        header: "C+D Q4",
+        header: "Culoare + Decolorare Q4",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -282,7 +358,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "haircare_tehnic_q1",
         accessorKey: "haircare_tehnic_q1",
-        header: "HT Q1",
+        header: "Tehnic Q1",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -290,7 +366,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "haircare_tehnic_q2",
         accessorKey: "haircare_tehnic_q2",
-        header: "HT Q2",
+        header: "Tehnic Q2",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -298,7 +374,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "haircare_tehnic_q3",
         accessorKey: "haircare_tehnic_q3",
-        header: "HT Q3",
+        header: "Tehnic Q3",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -306,7 +382,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "haircare_tehnic_q4",
         accessorKey: "haircare_tehnic_q4",
-        header: "HT Q4",
+        header: "Tehnic Q4",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs text-right">{formatCurrency(getValue() as number)}</span>
         ),
@@ -322,9 +398,25 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
       {
         id: "suma_bonus_reducere",
         accessorKey: "suma_bonus_reducere",
-        header: "Suma bonus - 7.5%",
+        header: "Suma calcul bonus - 7.5%",
         cell: ({ getValue }) => (
           <span className="font-mono text-xs font-bold text-right text-amber-700">{formatCurrency(getValue() as number)}</span>
+        ),
+      },
+      {
+        id: "total_bonus",
+        accessorKey: "total_bonus",
+        header: "Total bonus",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs font-bold text-right text-amber-800">{(getValue() as number).toFixed(0)}%</span>
+        ),
+      },
+      {
+        id: "suma_voucher",
+        accessorKey: "suma_voucher",
+        header: "Suma voucher",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs font-bold text-right text-amber-900">{formatCurrency(getValue() as number)}</span>
         ),
       },
     ],
@@ -336,9 +428,10 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: (row: Row<EppRow>) => row.original.is_combined,
     onSortingChange: (updater) => {
       const newSorting = typeof updater === "function" ? updater(sorting) : updater;
-      // @ts-ignore - we're using a local state for now
       setSorting(newSorting);
     },
     state: {
@@ -426,7 +519,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
               htmlFor="qualified-only"
               className="text-xs font-medium cursor-pointer select-none whitespace-nowrap"
             >
-              Qualified only (≥15k)
+              Qualified only (≥18k)
             </label>
           </div>
 
@@ -464,11 +557,9 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
                     <div className="flex items-center gap-2">
                       <span>{flexRender(h.column.columnDef.header, h.getContext())}</span>
                       <span className="flex items-center">
-                        {/* @ts-ignore */}
                         {h.column.getIsSorted() === "asc" ? (
                           <ChevronUp size={12} className="text-primary" />
-                        ) : /* @ts-ignore */
-                        h.column.getIsSorted() === "desc" ? (
+                        ) : h.column.getIsSorted() === "desc" ? (
                           <ChevronDown size={12} className="text-primary" />
                         ) : (
                           <ChevronsUpDown size={12} className="text-muted-foreground/30 group-hover:text-muted-foreground/60" />
@@ -482,25 +573,35 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row, i) => (
-              <tr
-                key={row.id}
-                className={cn(
-                  "border-b border-border/30 transition-colors hover:bg-primary/5",
-                  i % 2 === 0 ? "bg-background/30" : "bg-background/50"
+              <React.Fragment key={row.id}>
+                <tr
+                  className={cn(
+                    "border-b border-border/30 transition-colors hover:bg-primary/5",
+                    row.original.is_combined && "bg-primary/[0.02]",
+                    i % 2 === 0 ? "bg-background/30" : "bg-background/50"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        "px-3 py-2 border-r border-border/30 last:border-r-0",
+                        getQuarterBgColor(cell.column.id)
+                      )}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+                {row.getIsExpanded() && (
+                  <tr key={`${row.id}-expanded`} className="bg-muted/20 border-b border-border/30">
+                    <td colSpan={table.getVisibleLeafColumns().length} className="px-6 py-2 text-xs text-muted-foreground">
+                      <span className="font-medium">Source clients:</span>{" "}
+                      {row.original.source_clients.join(", ")}
+                    </td>
+                  </tr>
                 )}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className={cn(
-                      "px-3 py-2 border-r border-border/30 last:border-r-0",
-                      getQuarterBgColor(cell.column.id)
-                    )}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -510,7 +611,7 @@ export function EppReportTable({ rows, agentName, year, showQualifiedOnly, onQua
           <div className="flex flex-col items-center justify-center h-64 text-center">
             {searchQuery ? (
               <>
-                <p className="text-sm text-muted-foreground">No clients match "{searchQuery}"</p>
+                <p className="text-sm text-muted-foreground">No clients match &ldquo;{searchQuery}&rdquo;</p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">No data available</p>

@@ -108,7 +108,7 @@ export function ReturningDashboard({ datasets }: ReturningDashboardProps) {
         }
     }, [lastDataset, router]);
 
-    const handleEPP = useCallback(() => {
+    const handleEPro = useCallback(() => {
         if (lastDataset) {
             router.push(`/epp?dataset=${lastDataset.id}`);
         }
@@ -169,11 +169,11 @@ export function ReturningDashboard({ datasets }: ReturningDashboardProps) {
             description: "Build a report"
         },
         {
-            label: "EPP Analysis",
+            label: "EPro Analysis",
             icon: TrendingUp,
-            onClick: handleEPP,
+            onClick: handleEPro,
             primary: false,
-            description: "EPP reports"
+            description: "EPro reports"
         },
         {
             label: "Upload New",

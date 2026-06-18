@@ -2,14 +2,28 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { Subgroup, SubgroupsResult } from "@/types/subgroup";
 import { SubgroupTable } from "@/components/subgroups/SubgroupTable";
 import { SubgroupModal } from "@/components/subgroups/SubgroupModal";
 import { DeleteDialog } from "@/components/subgroups/DeleteDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, FileSpreadsheet, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Search, FileSpreadsheet, Upload, Download, ChevronDown, Trash2, X } from "lucide-react";
 
 type SortField = "cod" | "denumire" | "grupa" | "subgrupa" | null;
 type SortDirection = "asc" | "desc" | null;
@@ -24,6 +38,13 @@ export default function SubgroupsPage() {
   // Import state
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Export state
+  const [exporting, setExporting] = useState(false);
+
+  // Delete all state
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   // Sort state
   const [sortField, setSortField] = useState<SortField>(null);
@@ -165,7 +186,6 @@ export default function SubgroupsPage() {
         }]
       });
 
-      // Handle the selected file (can be string, string array, or null)
       const filePath = Array.isArray(selected)
         ? selected[0]
         : selected;
@@ -185,6 +205,46 @@ export default function SubgroupsPage() {
     }
   };
 
+  // Handle export to Excel
+  const handleExportExcel = async () => {
+    try {
+      const filePath = await save({
+        filters: [{
+          name: 'Excel',
+          extensions: ['xlsx']
+        }],
+        defaultPath: `subgroups_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      });
+
+      if (filePath) {
+        setExporting(true);
+        await invoke<string>('export_subgroups_to_excel', {
+          path: filePath
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to export subgroups';
+      setImportError(message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Handle delete all
+  const handleDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      await invoke<number>("delete_all_subgroups");
+      setDeleteAllDialogOpen(false);
+      await fetchSubgroups();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete subgroups";
+      setImportError(message);
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background/50">
       {/* Header */}
@@ -193,10 +253,43 @@ export default function SubgroupsPage() {
           <div>
             <h1 className="text-lg font-semibold">Manage subgroups</h1>
           </div>
-          <Button onClick={handleAdd} size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleAdd} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Add subgroup
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileSpreadsheet className="w-4 h-4 mr-1" />
+                  Excel
+                  <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={handleImportExcel} disabled={importing}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {importing ? "Importing..." : "Import from Excel"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel} disabled={exporting || subgroups.length === 0}>
+                  <Download className="w-4 h-4 mr-2" />
+                  {exporting ? "Exporting..." : "Export to Excel"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex-1" />
+            {subgroups.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteAllDialogOpen(true)}
+                className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete all
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -269,6 +362,28 @@ export default function SubgroupsPage() {
         onConfirm={handleDeleteConfirm}
         cod={subgroupToDelete?.cod || ""}
       />
+
+      {/* Delete all confirmation */}
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all subgroups?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all {subgroups.length} subgroups from the database.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllDialogOpen(false)} disabled={deletingAll}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAll} disabled={deletingAll}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              {deletingAll ? "Deleting..." : `Delete all ${subgroups.length}`}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 pub mod analytics;
 pub mod blend;
+pub mod client_combinations;
 pub mod data;
 pub mod epp;
 pub mod export;
@@ -11,6 +12,7 @@ pub mod report;
 pub mod subgroups;
 pub mod templates;
 pub mod trends;
+pub mod ty_reports;
 pub mod updater;
 
 pub use blend::{run_blend_query, BlendConfig, BlendResult, BlendRow, MatchPair};

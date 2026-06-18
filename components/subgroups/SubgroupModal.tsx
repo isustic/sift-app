@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Subgroup } from "@/types/subgroup";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2, X, Save, Pencil, Plus } from "lucide-react";
 
 interface SubgroupModalProps {
   open: boolean;
@@ -126,7 +126,12 @@ export function SubgroupModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
-          <DialogTitle>{editSubgroup ? "Edit subgroup" : "Add subgroup"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {editSubgroup
+              ? <><Pencil className="w-4 h-4" /> Edit subgroup</>
+              : <><Plus className="w-4 h-4" /> Add subgroup</>
+            }
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -197,6 +202,7 @@ export function SubgroupModal({
               onClick={handleDelete}
               disabled={isSaving}
             >
+              <Trash2 className="w-4 h-4 mr-1" />
               Delete
             </Button>
           )}
@@ -207,10 +213,11 @@ export function SubgroupModal({
             onClick={onClose}
             disabled={isSaving}
           >
+            <X className="w-4 h-4 mr-1" />
             Cancel
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
             Save
           </Button>
         </DialogFooter>

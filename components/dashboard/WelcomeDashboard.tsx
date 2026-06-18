@@ -74,8 +74,8 @@ export function WelcomeDashboard() {
         },
         {
             icon: FileSpreadsheet,
-            title: "EPP Analysis",
-            description: "Generate specialized EPP reports with agent tracking"
+            title: "EPro Analysis",
+            description: "Generate specialized EPro reports with agent tracking"
         },
         {
             icon: Clock,
