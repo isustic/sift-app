@@ -3,10 +3,11 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { invoke } from "@tauri-apps/api/core";
-import { Loader2, FileSpreadsheet, Database } from "lucide-react";
+import { Loader2, FileSpreadsheet, Database, Download, Calendar } from "lucide-react";
 import { AgentList, AgentInfo } from "@/components/epp/AgentList";
 import { EppReportTable, EppRow } from "@/components/epp/EppReportTable";
 import { SummaryCards } from "@/components/epp/SummaryCards";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Dataset {
@@ -36,6 +37,9 @@ function EProPageContent() {
   const [reportLoading, setReportLoading] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showQualifiedOnly, setShowQualifiedOnly] = useState(false);
+
+  // Export-all state
+  const [exportingAll, setExportingAll] = useState(false);
 
   // Load datasets on mount
   useEffect(() => {
@@ -128,6 +132,23 @@ function EProPageContent() {
     }
   };
 
+  // Export all agents
+  const handleExportAll = async () => {
+    if (!selectedDatasetId) return;
+    setExportingAll(true);
+    try {
+      await invoke("export_all_epp_reports", {
+        datasetId: selectedDatasetId,
+        year: selectedYear,
+      });
+    } catch (err) {
+      // User cancelled or error — either way we're done
+      console.error("Export all failed:", err);
+    } finally {
+      setExportingAll(false);
+    }
+  };
+
   // Filter rows by qualified status
   const filteredRows = reportData
     ? reportData.rows.filter((row) =>
@@ -156,17 +177,19 @@ function EProPageContent() {
 
   return (
     <div className="flex h-full bg-background/50">
-      {/* LEFT PANEL - Agent Selection */}
+      {/* LEFT PANEL - Agent Selection & Export */}
       <aside className="w-80 shrink-0 border-r border-border/50 bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-4 pt-4 pb-2 border-b border-border/50">
-          <h1 className="text-sm font-semibold flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-primary" />
-            EPro Reports
-          </h1>
-          <p className="text-[10px] text-muted-foreground mb-3">
-            Select dataset and agent
-          </p>
+        <div className="px-4 pt-4 pb-3 border-b border-border/50 space-y-3">
+          <div>
+            <h1 className="text-sm font-semibold flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-primary" />
+              EPro Reports
+            </h1>
+            <p className="text-[10px] text-muted-foreground">
+              Select dataset and agent
+            </p>
+          </div>
 
           {/* Dataset Selector */}
           <div className="space-y-1.5">
@@ -190,6 +213,53 @@ function EProPageContent() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Year Selector */}
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              <Calendar className="w-3 h-3" />
+              Year
+            </label>
+            <Select
+              value={String(selectedYear)}
+              onValueChange={(v) => setSelectedYear(Number(v))}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - 5 + i;
+                  return (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Export All Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-2 h-9"
+            disabled={!selectedDatasetId || exportingAll}
+            onClick={handleExportAll}
+          >
+            {exportingAll ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Exporting all agents...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Export all agents
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Agent List */}
@@ -218,7 +288,7 @@ function EProPageContent() {
         ) : selectedAgent && reportData && reportData.rows.length > 0 ? (
           // Report display
           <>
-            {/* Report header with year selector */}
+            {/* Report header (simplified - year selector moved to sidebar) */}
             <div className="px-6 py-3 border-b border-border/50 bg-card/20">
               <div className="flex items-center justify-between">
                 <div>
@@ -226,27 +296,6 @@ function EProPageContent() {
                   <p className="text-[11px] text-muted-foreground">
                     EPro Report {reportData.year}
                   </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted-foreground">Year:</label>
-                  <Select
-                    value={String(selectedYear)}
-                    onValueChange={(v) => setSelectedYear(Number(v))}
-                  >
-                    <SelectTrigger className="h-7 w-[90px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 10 }, (_, i) => {
-                        const year = new Date().getFullYear() - 5 + i;
-                        return (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>

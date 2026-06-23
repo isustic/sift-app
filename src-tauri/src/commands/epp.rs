@@ -5,9 +5,11 @@
 use crate::db::DbState;
 use chrono::{Datelike, NaiveDate, Duration};
 use rusqlite::params;
+use rust_xlsxwriter::{Format, FormatBorder, Workbook};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use tauri::State;
+use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 
 /// Unique agent information with client count
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,6 +185,496 @@ pub fn get_agents_for_dataset(db: State<'_, DbState>, dataset_id: i64) -> Result
     Ok(rows)
 }
 
+/// Generate EPro report rows for a specific agent, year, and dataset.
+///
+/// This is the shared calculation kernel used by both the single-agent
+/// page view and the "Export All" workbook. Using the same code path
+/// guarantees that what the user sees on screen matches what gets exported.
+fn generate_report_rows(
+    conn: &rusqlite::Connection,
+    agent_name: &str,
+    year: i32,
+    dataset_id: i64,
+) -> Result<Vec<EppRow>, String> {
+    let table_name: String = conn
+        .query_row(
+            "SELECT table_name FROM datasets WHERE id = ?1",
+            params![dataset_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("Dataset not found: {e}"))?;
+
+    let mut client_data: HashMap<String, ClientData> = HashMap::new();
+
+    // Check if required columns exist
+    let columns_query = format!("PRAGMA table_info(\"{}\")", table_name);
+    let mut cols_stmt = conn
+        .prepare(&columns_query)
+        .map_err(|e| format!("Failed to check columns for table {}: {}", table_name, e))?;
+
+    let column_names: Vec<String> = cols_stmt
+        .query_map([], |row| {
+            let name: String = row.get(1)?;
+            Ok(name)
+        })
+        .map_err(|e| format!("Failed to read columns: {e}"))?
+        .collect::<Result<_, _>>()
+        .map_err(|e| format!("Failed to parse columns: {e}"))?;
+
+    let has_agent = column_names.iter().any(|c| c == "Agent");
+    let has_client = column_names.iter().any(|c| c == "Client");
+    let has_date = column_names.iter().any(|c| c == "Data");
+    let has_value = column_names.iter().any(|c| c == "Valoare_Contabila");
+    let has_cod = column_names.iter().any(|c| c == "Cod");
+
+    if !has_agent || !has_client || !has_date || !has_value {
+        return Ok(Vec::new());
+    }
+
+    // Query data for this agent
+    let query = if has_cod {
+        format!(
+            "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", \"Cod\" \
+             FROM \"{}\" \
+             WHERE \"Agent\" = ?1",
+            table_name
+        )
+    } else {
+        format!(
+            "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", NULL as \"Cod\" \
+             FROM \"{}\" \
+             WHERE \"Agent\" = ?1",
+            table_name
+        )
+    };
+
+    let mut data_stmt = conn
+        .prepare(&query)
+        .map_err(|e| format!("Failed to prepare data query: {e}"))?;
+
+    let rows = data_stmt
+        .query_map(params![agent_name], |row| {
+            let client_ref = row.get_ref(0).unwrap();
+            let date_ref = row.get_ref(1).unwrap();
+            let value_ref = row.get_ref(2).unwrap();
+            let cod_ref = row.get_ref(3).unwrap();
+
+            let client = match client_ref {
+                rusqlite::types::ValueRef::Text(s) => {
+                    std::str::from_utf8(s).unwrap_or("").to_string()
+                }
+                _ => String::new(),
+            };
+            let date_str = match date_ref {
+                rusqlite::types::ValueRef::Text(s) => {
+                    normalize_yyyymmdd(std::str::from_utf8(s).unwrap_or(""))
+                }
+                rusqlite::types::ValueRef::Integer(i) => date_int_to_iso(i),
+                _ => String::new(),
+            };
+            let value = match value_ref {
+                rusqlite::types::ValueRef::Integer(i) => i as f64,
+                rusqlite::types::ValueRef::Real(r) => r,
+                rusqlite::types::ValueRef::Text(s) => {
+                    let s_str = std::str::from_utf8(s).unwrap_or("");
+                    s_str.replace(',', ".").parse().unwrap_or(0.0)
+                }
+                rusqlite::types::ValueRef::Null => 0.0,
+                _ => 0.0,
+            };
+            let cod = match cod_ref {
+                rusqlite::types::ValueRef::Text(s) => {
+                    std::str::from_utf8(s).unwrap_or("").to_string()
+                }
+                rusqlite::types::ValueRef::Integer(i) => i.to_string(),
+                rusqlite::types::ValueRef::Real(r) => r.to_string(),
+                rusqlite::types::ValueRef::Null => String::new(),
+                _ => String::new(),
+            };
+
+            Ok((client, date_str, value, cod))
+        })
+        .map_err(|e| format!("Failed to query data: {e}"))?;
+
+    for row in rows {
+        if let Ok((client, date_str, value, cod)) = row {
+            if client.is_empty() {
+                continue;
+            }
+
+            let entry = client_data
+                .entry(client.trim().to_lowercase())
+                .or_insert_with(|| ClientData {
+                    client: client.clone(),
+                    agent: agent_name.to_string(),
+                    q1: 0.0,
+                    q2: 0.0,
+                    q3: 0.0,
+                    q4: 0.0,
+                    culoare_decolorare_q1: 0.0,
+                    culoare_decolorare_q2: 0.0,
+                    culoare_decolorare_q3: 0.0,
+                    culoare_decolorare_q4: 0.0,
+                    haircare_tehnic_q1: 0.0,
+                    haircare_tehnic_q2: 0.0,
+                    haircare_tehnic_q3: 0.0,
+                    haircare_tehnic_q4: 0.0,
+                });
+
+            if value > 0.0 {
+                let quarter = parse_quarter(&date_str, year);
+
+                if let Some(q) = quarter {
+                    match q {
+                        1 => entry.q1 += value,
+                        2 => entry.q2 += value,
+                        3 => entry.q3 += value,
+                        4 => entry.q4 += value,
+                        _ => {}
+                    }
+
+                    if !cod.is_empty() {
+                        match conn.query_row(
+                            "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                            params![cod],
+                            |row| row.get::<_, String>(0),
+                        ) {
+                            Ok(subgrupa) => {
+                                let subgrupa_lower = subgrupa.to_lowercase();
+                                if subgrupa_lower == "culoare" || subgrupa_lower == "decolorare" {
+                                    match q {
+                                        1 => entry.culoare_decolorare_q1 += value,
+                                        2 => entry.culoare_decolorare_q2 += value,
+                                        3 => entry.culoare_decolorare_q3 += value,
+                                        4 => entry.culoare_decolorare_q4 += value,
+                                        _ => {}
+                                    }
+                                }
+                                if subgrupa_lower == "haircare tehnic" {
+                                    match q {
+                                        1 => entry.haircare_tehnic_q1 += value,
+                                        2 => entry.haircare_tehnic_q2 += value,
+                                        3 => entry.haircare_tehnic_q3 += value,
+                                        4 => entry.haircare_tehnic_q4 += value,
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // If no data found for the selected year, try again without year filter
+    if client_data.is_empty() {
+        let fallback_query = if has_cod {
+            format!(
+                "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", \"Cod\" \
+                 FROM \"{}\" \
+                 WHERE \"Agent\" = ?1",
+                table_name
+            )
+        } else {
+            format!(
+                "SELECT \"Client\", \"Data\", \"Valoare_Contabila\", NULL as \"Cod\" \
+                 FROM \"{}\" \
+                 WHERE \"Agent\" = ?1",
+                table_name
+            )
+        };
+
+        let mut fallback_stmt = conn
+            .prepare(&fallback_query)
+            .map_err(|e| format!("Failed to prepare fallback query: {e}"))?;
+
+        let fallback_rows = fallback_stmt
+            .query_map(params![agent_name], |row| {
+                let client_ref = row.get_ref(0).unwrap();
+                let date_ref = row.get_ref(1).unwrap();
+                let value_ref = row.get_ref(2).unwrap();
+                let cod_ref = row.get_ref(3).unwrap();
+
+                let client = match client_ref {
+                    rusqlite::types::ValueRef::Text(s) => {
+                        std::str::from_utf8(s).unwrap_or("").to_string()
+                    }
+                    _ => String::new(),
+                };
+                let date_str = match date_ref {
+                    rusqlite::types::ValueRef::Text(s) => {
+                        normalize_yyyymmdd(std::str::from_utf8(s).unwrap_or(""))
+                    }
+                    rusqlite::types::ValueRef::Integer(i) => date_int_to_iso(i),
+                    _ => String::new(),
+                };
+                let value = match value_ref {
+                    rusqlite::types::ValueRef::Integer(i) => i as f64,
+                    rusqlite::types::ValueRef::Real(r) => r,
+                    rusqlite::types::ValueRef::Text(s) => {
+                        let s_str = std::str::from_utf8(s).unwrap_or("");
+                        s_str.replace(',', ".").parse().unwrap_or(0.0)
+                    }
+                    rusqlite::types::ValueRef::Null => 0.0,
+                    _ => 0.0,
+                };
+                let cod = match cod_ref {
+                    rusqlite::types::ValueRef::Text(s) => {
+                        std::str::from_utf8(s).unwrap_or("").to_string()
+                    }
+                    rusqlite::types::ValueRef::Integer(i) => i.to_string(),
+                    rusqlite::types::ValueRef::Real(r) => r.to_string(),
+                    rusqlite::types::ValueRef::Null => String::new(),
+                    _ => String::new(),
+                };
+
+                Ok((client, date_str, value, cod))
+            })
+            .map_err(|e| format!("Failed to query fallback data: {e}"))?;
+
+        for row in fallback_rows {
+            if let Ok((client, date_str, value, cod)) = row {
+                if client.is_empty() {
+                    continue;
+                }
+
+                let entry = client_data
+                    .entry(client.trim().to_lowercase())
+                    .or_insert_with(|| ClientData {
+                        client: client.clone(),
+                        agent: agent_name.to_string(),
+                        q1: 0.0,
+                        q2: 0.0,
+                        q3: 0.0,
+                        q4: 0.0,
+                        culoare_decolorare_q1: 0.0,
+                        culoare_decolorare_q2: 0.0,
+                        culoare_decolorare_q3: 0.0,
+                        culoare_decolorare_q4: 0.0,
+                        haircare_tehnic_q1: 0.0,
+                        haircare_tehnic_q2: 0.0,
+                        haircare_tehnic_q3: 0.0,
+                        haircare_tehnic_q4: 0.0,
+                    });
+
+                if value > 0.0 {
+                    let date = parse_date_flexible(&date_str);
+                    if let Some(d) = date {
+                        let month = d.month() as u32;
+                        let subgrupa_lower = if !cod.is_empty() {
+                            conn.query_row(
+                                "SELECT LOWER(subgrupa) FROM subgroups WHERE LOWER(cod) = LOWER(?1) LIMIT 1",
+                                params![cod],
+                                |row| row.get::<_, String>(0),
+                            )
+                            .ok()
+                        } else {
+                            None
+                        };
+
+                        match month {
+                            1..=3 => {
+                                entry.q1 += value;
+                                if let Some(ref subgrupa) = subgrupa_lower {
+                                    if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                        entry.culoare_decolorare_q1 += value;
+                                    }
+                                    if subgrupa == "haircare tehnic" {
+                                        entry.haircare_tehnic_q1 += value;
+                                    }
+                                }
+                            }
+                            4..=6 => {
+                                entry.q2 += value;
+                                if let Some(ref subgrupa) = subgrupa_lower {
+                                    if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                        entry.culoare_decolorare_q2 += value;
+                                    }
+                                    if subgrupa == "haircare tehnic" {
+                                        entry.haircare_tehnic_q2 += value;
+                                    }
+                                }
+                            }
+                            7..=9 => {
+                                entry.q3 += value;
+                                if let Some(ref subgrupa) = subgrupa_lower {
+                                    if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                        entry.culoare_decolorare_q3 += value;
+                                    }
+                                    if subgrupa == "haircare tehnic" {
+                                        entry.haircare_tehnic_q3 += value;
+                                    }
+                                }
+                            }
+                            10..=12 => {
+                                entry.q4 += value;
+                                if let Some(ref subgrupa) = subgrupa_lower {
+                                    if subgrupa == "culoare" || subgrupa == "decolorare" {
+                                        entry.culoare_decolorare_q4 += value;
+                                    }
+                                    if subgrupa == "haircare tehnic" {
+                                        entry.haircare_tehnic_q4 += value;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Look up TY 2025 totals for this agent
+    let mut ty_totals = lookup_ty_2025_totals(conn, agent_name);
+
+    // Load client combinations for this agent
+    let combinations = load_combinations_for_agent(conn, agent_name);
+    let mut combined_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut member_keys: HashSet<String> = HashSet::new();
+
+    for combo in &combinations {
+        let member_keys_list: Vec<String> = combo.members.iter().map(|m| m.client_key.clone()).collect();
+        let display_name = combo
+            .members
+            .iter()
+            .map(|m| m.client_name.as_str())
+            .collect::<Vec<_>>()
+            .join(" + ");
+
+        for key in &member_keys_list {
+            member_keys.insert(key.clone());
+        }
+        combined_map.insert(display_name, member_keys_list);
+    }
+
+    // Merge combination totals from raw client data
+    for (display_name, member_keys_list) in &combined_map {
+        let mut merged = ClientData {
+            client: display_name.clone(),
+            agent: agent_name.to_string(),
+            q1: 0.0,
+            q2: 0.0,
+            q3: 0.0,
+            q4: 0.0,
+            culoare_decolorare_q1: 0.0,
+            culoare_decolorare_q2: 0.0,
+            culoare_decolorare_q3: 0.0,
+            culoare_decolorare_q4: 0.0,
+            haircare_tehnic_q1: 0.0,
+            haircare_tehnic_q2: 0.0,
+            haircare_tehnic_q3: 0.0,
+            haircare_tehnic_q4: 0.0,
+        };
+
+        for key in member_keys_list {
+            if let Some(member_data) = client_data.get(key) {
+                merged.q1 += member_data.q1;
+                merged.q2 += member_data.q2;
+                merged.q3 += member_data.q3;
+                merged.q4 += member_data.q4;
+                merged.culoare_decolorare_q1 += member_data.culoare_decolorare_q1;
+                merged.culoare_decolorare_q2 += member_data.culoare_decolorare_q2;
+                merged.culoare_decolorare_q3 += member_data.culoare_decolorare_q3;
+                merged.culoare_decolorare_q4 += member_data.culoare_decolorare_q4;
+                merged.haircare_tehnic_q1 += member_data.haircare_tehnic_q1;
+                merged.haircare_tehnic_q2 += member_data.haircare_tehnic_q2;
+                merged.haircare_tehnic_q3 += member_data.haircare_tehnic_q3;
+                merged.haircare_tehnic_q4 += member_data.haircare_tehnic_q4;
+            }
+        }
+
+        client_data.insert(display_name.clone(), merged);
+
+        // Merge TY 2025 totals for the combination
+        let summed_ty: f64 = member_keys_list
+            .iter()
+            .map(|k| ty_totals.get(k).copied().unwrap_or(0.0))
+            .sum();
+        ty_totals.insert(display_name.to_lowercase(), summed_ty);
+    }
+
+    // Remove individual member rows (they are now represented by combined rows)
+    for key in &member_keys {
+        client_data.remove(key);
+    }
+
+    // Convert to EppRow with calculations
+    let mut rows: Vec<EppRow> = client_data
+        .into_values()
+        .map(|data| {
+            let total_anual = data.q1 + data.q2 + data.q3 + data.q4;
+            let reducere = total_anual * 0.925;
+            let total = reducere;
+            let (program, procent) = calculate_program(total);
+
+            let suma_bonus = data.culoare_decolorare_q1
+                + data.culoare_decolorare_q2
+                + data.culoare_decolorare_q3
+                + data.culoare_decolorare_q4
+                + data.haircare_tehnic_q1
+                + data.haircare_tehnic_q2
+                + data.haircare_tehnic_q3
+                + data.haircare_tehnic_q4;
+            let suma_bonus_reducere = suma_bonus * 0.925;
+
+            let total_2025 = ty_totals
+                .get(&data.client.trim().to_lowercase())
+                .copied()
+                .unwrap_or(0.0);
+            let vs_2025_2026 = total_anual - total_2025;
+            let bonus_crestere = if vs_2025_2026 > 0.0 { 2.0 } else { 0.0 };
+
+            let procent_num = procent.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+            let total_bonus = procent_num + bonus_crestere;
+            let suma_voucher = (total_bonus / 100.0) * suma_bonus_reducere;
+
+            let is_comb = combined_map.contains_key(&data.client);
+            let source = if is_comb {
+                combined_map.get(&data.client).cloned().unwrap_or_default()
+            } else {
+                vec![]
+            };
+
+            EppRow {
+                client: data.client,
+                agent: data.agent,
+                q1_total: data.q1,
+                q2_total: data.q2,
+                q3_total: data.q3,
+                q4_total: data.q4,
+                total_anual,
+                reducere,
+                total,
+                program,
+                procent,
+                total_2025,
+                vs_2025_2026,
+                bonus_crestere,
+                culoare_decolorare_q1: data.culoare_decolorare_q1,
+                culoare_decolorare_q2: data.culoare_decolorare_q2,
+                culoare_decolorare_q3: data.culoare_decolorare_q3,
+                culoare_decolorare_q4: data.culoare_decolorare_q4,
+                haircare_tehnic_q1: data.haircare_tehnic_q1,
+                haircare_tehnic_q2: data.haircare_tehnic_q2,
+                haircare_tehnic_q3: data.haircare_tehnic_q3,
+                haircare_tehnic_q4: data.haircare_tehnic_q4,
+                suma_bonus,
+                suma_bonus_reducere,
+                total_bonus,
+                suma_voucher,
+                is_combined: is_comb,
+                source_clients: source,
+            }
+        })
+        .collect();
+
+    rows.sort_by(|a, b| a.client.cmp(&b.client));
+    Ok(rows)
+}
+
 /// Generate EPro report for a specific agent, year, and dataset
 #[tauri::command]
 pub fn generate_epp_report(
@@ -197,15 +689,13 @@ pub fn generate_epp_report(
 
     // Get table names - either specific dataset or all datasets
     let table_names: Vec<String> = if let Some(ds_id) = dataset_id {
-        // Get only the specified dataset table
-        let table_name: String = conn
-            .query_row(
-                "SELECT table_name FROM datasets WHERE id = ?1",
-                params![ds_id],
-                |r| r.get(0),
-            )
-            .map_err(|e| format!("Dataset not found: {e}"))?;
-        vec![table_name]
+        // Use the shared calculation kernel for single-dataset calls
+        let rows = generate_report_rows(&conn, &agent_name, report_year, ds_id)?;
+        return Ok(EppReportResult {
+            agent_name,
+            year: report_year,
+            rows,
+        });
     } else {
         // Get all dataset tables (for backwards compatibility)
         let mut stmt = conn
@@ -1107,4 +1597,341 @@ struct LoadedCombination {
 struct LoadedMember {
     client_name: String,
     client_key: String,
+}
+
+// ---------------------------------------------------------------------------
+// Export All Agents
+// ---------------------------------------------------------------------------
+
+/// Export all agents for a dataset into a single multi-sheet workbook.
+#[tauri::command]
+pub async fn export_all_epp_reports(
+    dataset_id: i64,
+    year: i32,
+    db: State<'_, DbState>,
+    app: AppHandle,
+) -> Result<String, String> {
+    use std::collections::HashMap as NameMap;
+
+    let agent_reports = {
+        let conn = db.0.lock().map_err(|e| format!("DB lock error: {e}"))?;
+
+        // Get all agents for this dataset
+        let table_name: String = conn
+            .query_row(
+                "SELECT table_name FROM datasets WHERE id = ?1",
+                params![dataset_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Dataset not found: {e}"))?;
+
+        let query = format!(
+            "SELECT \"Agent\", COUNT(DISTINCT \"Client\") as client_count \
+             FROM \"{}\" \
+             WHERE \"Agent\" IS NOT NULL AND \"Agent\" != '' \
+             GROUP BY \"Agent\" \
+             ORDER BY \"Agent\"",
+            table_name
+        );
+
+        let mut stmt = conn
+            .prepare(&query)
+            .map_err(|e| format!("Failed to prepare agent query: {e}"))?;
+
+        let agents: Vec<(String, i64)> = stmt
+            .query_map([], |row| {
+                let name: String = row.get(0)?;
+                let count: i64 = row.get(1)?;
+                Ok((name, count))
+            })
+            .map_err(|e| format!("Failed to query agents: {e}"))?
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("Failed to parse agents: {e}"))?;
+
+        if agents.is_empty() {
+            return Err("No agents found for the selected dataset".to_string());
+        }
+
+        // Generate all reports while the DB lock is held
+        let mut reports: Vec<(String, i64, Vec<EppRow>)> = Vec::new();
+        for (agent_name, client_count) in &agents {
+            match generate_report_rows(&conn, agent_name, year, dataset_id) {
+                Ok(rows) => {
+                    reports.push((agent_name.clone(), *client_count, rows));
+                }
+                Err(e) => {
+                    eprintln!(
+                        "WARN: Failed to generate report for agent '{}': {}",
+                        agent_name, e
+                    );
+                    // Skip agents that fail, don't abort the entire export
+                }
+            }
+        }
+
+        reports
+    }; // DB lock released here (conn dropped)
+
+    if agent_reports.is_empty() {
+        return Err("No reports could be generated for any agent".to_string());
+    }
+
+    // Build the Excel workbook
+    let mut workbook = Workbook::new();
+
+    let header_fmt = Format::new()
+        .set_bold()
+        .set_border(FormatBorder::Thin)
+        .set_background_color(0x4472C4)
+        .set_font_color(0xFFFFFF);
+
+    let data_fmt = Format::new().set_border(FormatBorder::Thin);
+
+    // --- Summary sheet ---
+    let summary = workbook.add_worksheet();
+    summary
+        .set_name("Summary")
+        .map_err(|e| format!("Failed to name summary sheet: {e}"))?;
+
+    let summary_headers = ["Agent", "Total Clients", "Total Anual"];
+    for (col, name) in summary_headers.iter().enumerate() {
+        summary
+            .write_with_format(0, col as u16, *name, &header_fmt)
+            .map_err(|e| format!("Summary header write error: {e}"))?;
+    }
+
+    for (row_idx, (agent_name, client_count, epp_rows)) in agent_reports.iter().enumerate() {
+        let total_anual: f64 = epp_rows.iter().map(|r| r.total_anual).sum();
+        summary
+            .write_with_format(row_idx as u32 + 1, 0, agent_name.as_str(), &data_fmt)
+            .map_err(|e| format!("Summary write error: {e}"))?;
+        summary
+            .write_with_format(row_idx as u32 + 1, 1, *client_count as f64, &data_fmt)
+            .map_err(|e| format!("Summary write error: {e}"))?;
+        summary
+            .write_with_format(
+                row_idx as u32 + 1,
+                2,
+                format!("{:.2} RON", total_anual).as_str(),
+                &data_fmt,
+            )
+            .map_err(|e| format!("Summary write error: {e}"))?;
+    }
+
+    summary.autofit();
+
+    // --- Agent sheets ---
+    let agent_columns = &[
+        "Client",
+        "Agent",
+        "Total Q1",
+        "Total Q2",
+        "Total Q3",
+        "Total Q4",
+        "Total Anual",
+        "Total 7.5%",
+        "Total incadrare",
+        "Program incadrare",
+        "Procent incadrare",
+        "Total 2025",
+        "2025 vs 2026",
+        "Bonus crestere",
+        "Culoare + Decolorare Q1",
+        "Culoare + Decolorare Q2",
+        "Culoare + Decolorare Q3",
+        "Culoare + Decolorare Q4",
+        "Tehnic Q1",
+        "Tehnic Q2",
+        "Tehnic Q3",
+        "Tehnic Q4",
+        "Suma bonus",
+        "Suma calcul bonus - 7.5%",
+        "Total bonus",
+        "Suma voucher",
+    ];
+
+    let mut sheet_names_used: NameMap<String, usize> = NameMap::new();
+
+    for (agent_name, _client_count, epp_rows) in &agent_reports {
+        let sheet_name = make_sheet_name(agent_name, &mut sheet_names_used);
+        let sheet = workbook.add_worksheet();
+        sheet
+            .set_name(&sheet_name)
+            .map_err(|e| format!("Failed to name sheet '{sheet_name}': {e}"))?;
+
+        // Write headers
+        for (col, name) in agent_columns.iter().enumerate() {
+            sheet
+                .write_with_format(0, col as u16, *name, &header_fmt)
+                .map_err(|e| format!("Header write error: {e}"))?;
+        }
+
+        // Write data rows
+        for (row_idx, epp_row) in epp_rows.iter().enumerate() {
+            let r = (row_idx + 1) as u32;
+
+            // String fields
+            sheet
+                .write_with_format(r, 0, epp_row.client.as_str(), &data_fmt)
+                .map_err(|e| format!("Write error: {e}"))?;
+            sheet
+                .write_with_format(r, 1, epp_row.agent.as_str(), &data_fmt)
+                .map_err(|e| format!("Write error: {e}"))?;
+
+            // Numeric fields
+            let nums = [
+                (2, epp_row.q1_total),
+                (3, epp_row.q2_total),
+                (4, epp_row.q3_total),
+                (5, epp_row.q4_total),
+                (6, epp_row.total_anual),
+                (7, epp_row.reducere),
+                (8, epp_row.total),
+            ];
+            for (col, val) in nums {
+                sheet
+                    .write_with_format(r, col, val, &data_fmt)
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
+
+            // String fields (program & procent)
+            sheet
+                .write_with_format(r, 9, epp_row.program.as_str(), &data_fmt)
+                .map_err(|e| format!("Write error: {e}"))?;
+            sheet
+                .write_with_format(r, 10, epp_row.procent.as_str(), &data_fmt)
+                .map_err(|e| format!("Write error: {e}"))?;
+
+            // Numeric: TY comparison
+            let nums2 = [
+                (11, epp_row.total_2025),
+                (12, epp_row.vs_2025_2026),
+                (13, epp_row.bonus_crestere),
+            ];
+            for (col, val) in nums2 {
+                sheet
+                    .write_with_format(r, col, val, &data_fmt)
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
+
+            // Culoare + Decolorare quarterly
+            let nums3 = [
+                (14, epp_row.culoare_decolorare_q1),
+                (15, epp_row.culoare_decolorare_q2),
+                (16, epp_row.culoare_decolorare_q3),
+                (17, epp_row.culoare_decolorare_q4),
+            ];
+            for (col, val) in nums3 {
+                sheet
+                    .write_with_format(r, col, val, &data_fmt)
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
+
+            // Haircare Tehnic quarterly
+            let nums4 = [
+                (18, epp_row.haircare_tehnic_q1),
+                (19, epp_row.haircare_tehnic_q2),
+                (20, epp_row.haircare_tehnic_q3),
+                (21, epp_row.haircare_tehnic_q4),
+            ];
+            for (col, val) in nums4 {
+                sheet
+                    .write_with_format(r, col, val, &data_fmt)
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
+
+            // Bonus fields (numeric)
+            let nums5 = [
+                (22, epp_row.suma_bonus),
+                (23, epp_row.suma_bonus_reducere),
+            ];
+            for (col, val) in nums5 {
+                sheet
+                    .write_with_format(r, col, val, &data_fmt)
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
+
+            // Total bonus — format as percentage string (e.g. "7%", "10%")
+            sheet
+                .write_with_format(r, 24, format!("{:.0}%", epp_row.total_bonus).as_str(), &data_fmt)
+                .map_err(|e| format!("Write error: {e}"))?;
+
+            // Suma voucher — format as RON with 2 decimals (e.g. "RON 1,234.56")
+            // Use the same {:.2} format; Excel will display it as a string
+            sheet
+                .write_with_format(
+                    r,
+                    25,
+                    format!("{:.2} RON", epp_row.suma_voucher).as_str(),
+                    &data_fmt,
+                )
+                .map_err(|e| format!("Write error: {e}"))?;
+        }
+
+        sheet.autofit();
+    }
+
+    // Open native save dialog
+    let default_filename = format!("EPro_All_Agents_{}.xlsx", year);
+    let path = app
+        .dialog()
+        .file()
+        .add_filter("Excel Spreadsheet", &["xlsx"])
+        .set_file_name(&default_filename)
+        .blocking_save_file()
+        .ok_or("Export cancelled")?;
+
+    let path_str = path.to_string();
+
+    workbook
+        .save(&path_str)
+        .map_err(|e| format!("Save error: {e}"))?;
+
+    Ok(path_str)
+}
+
+/// Build a valid Excel sheet name from an agent name.
+///
+/// Excel sheet names are limited to 31 characters and cannot contain
+/// `[ ] : * ? / \`.  If the cleaned name collides with a previously-used
+/// name, a numeric suffix is appended (e.g. `"Name"`, `"Name 2"`, `"Name 3"`).
+fn make_sheet_name(
+    agent_name: &str,
+    used: &mut HashMap<String, usize>,
+) -> String {
+    // Remove invalid Excel characters
+    let invalid_chars = ['[', ']', ':', '*', '?', '/', '\\'];
+    let cleaned: String = agent_name
+        .chars()
+        .filter(|c| !invalid_chars.contains(c))
+        .collect();
+
+    // Truncate to 31 chars
+    let mut candidate: String = cleaned.chars().take(31).collect();
+    if candidate.is_empty() {
+        candidate = "Agent".to_string();
+    }
+
+    // Handle collisions
+    let count = used.entry(candidate.clone()).or_insert(0);
+    if *count > 0 {
+        *count += 1;
+        // Try "Name 2", "Name 3", ..., truncating to fit within 31 chars
+        let suffix = format!(" {}", *count);
+        let max_base = 31 - suffix.len();
+        let base: String = agent_name
+            .chars()
+            .filter(|c| !invalid_chars.contains(c))
+            .take(max_base)
+            .collect();
+        candidate = format!("{}{}", base, suffix);
+        // Guard against edge case where even the base is empty
+        if candidate.is_empty() {
+            candidate = format!("Agent{}", suffix);
+        }
+    } else {
+        *count += 1;
+    }
+
+    candidate
 }

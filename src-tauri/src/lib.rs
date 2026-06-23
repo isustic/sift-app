@@ -69,6 +69,7 @@ pub fn run() {
             commands::epp::get_unique_agents,
             commands::epp::get_agents_for_dataset,
             commands::epp::generate_epp_report,
+            commands::epp::export_all_epp_reports,
             commands::subgroups::insert_subgroups,
             commands::subgroups::get_subgroups,
             commands::subgroups::search_subgroups,
