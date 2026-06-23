@@ -177,7 +177,7 @@ export function Sidebar() {
                         collapsed ? "w-0 h-0 opacity-0" : "opacity-100"
                     )}>
                         <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-body">Version</p>
-                        <p className="text-xs font-data text-muted-foreground">v1.1.1</p>
+                        <p className="text-xs font-data text-muted-foreground">v1.1.2</p>
                     </div>
 
                     <div className={cn(
